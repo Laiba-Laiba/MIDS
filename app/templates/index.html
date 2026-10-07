@@ -60,71 +60,198 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const knobs = ["distort", "noise", "rotate"];
-let challengeId = null, tries = 0, wins = 0;
+
+let challengeId = null;
+let tries = 0;
+let wins = 0;
 
 let beh, shownAt, lastKey;
+
 function resetBehaviour() {
-  beh = { keys: 0, moves: 0, pasted: false, first_key_ms: null, gaps: [] };
-  shownAt = performance.now(); lastKey = null;
+  beh = {
+    keys: 0,
+    moves: 0,
+    pasted: false,
+    first_key_ms: null,
+    gaps: []
+  };
+
+  shownAt = performance.now();
+  lastKey = null;
 }
+
 resetBehaviour();
+
 document.addEventListener("pointermove", () => beh.moves++);
+
 $("answer").addEventListener("keydown", () => {
   const t = performance.now();
+
   beh.keys++;
-  if (beh.first_key_ms === null) beh.first_key_ms = Math.round(t - shownAt);
-  if (lastKey !== null) beh.gaps.push(t - lastKey);
+
+  if (beh.first_key_ms === null) {
+    beh.first_key_ms = Math.round(t - shownAt);
+  }
+
+  if (lastKey !== null) {
+    beh.gaps.push(t - lastKey);
+  }
+
   lastKey = t;
 });
-$("answer").addEventListener("paste", () => { beh.pasted = true; });
+
+$("answer").addEventListener("paste", () => {
+  beh.pasted = true;
+});
+
 function behaviourSummary() {
-  const gp = beh.gaps, n = gp.length;
-  const mean = n ? gp.reduce((a, b) => a + b, 0) / n : 0;
-  const std = n ? Math.sqrt(gp.reduce((a, b) => a + (b - mean) ** 2, 0) / n) : 0;
-  return { keys: beh.keys, moves: beh.moves, pasted: beh.pasted, first_key_ms: beh.first_key_ms,
-           key_gap_mean: Math.round(mean), key_gap_std: Math.round(std) };
+  const gp = beh.gaps;
+  const n = gp.length;
+
+  const mean = n
+    ? gp.reduce((a, b) => a + b, 0) / n
+    : 0;
+
+  const std = n
+    ? Math.sqrt(
+        gp.reduce((a, b) => a + (b - mean) ** 2, 0) / n
+      )
+    : 0;
+
+  return {
+    keys: beh.keys,
+    moves: beh.moves,
+    pasted: beh.pasted,
+    first_key_ms: beh.first_key_ms,
+    key_gap_mean: Math.round(mean),
+    key_gap_std: Math.round(std)
+  };
 }
 
-function params() { return Object.fromEntries(knobs.map(k => [k, Number($(k).value)])); }
+function params() {
+  return Object.fromEntries(
+    knobs.map(k => [k, Number($(k).value)])
+  );
+}
 
 async function post(url, body) {
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  return { ok: res.ok, data: await res.json() };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  return {
+    ok: res.ok,
+    data: await res.json()
+  };
 }
 
+
+/* Generate a NEW challenge */
 async function loadChallenge() {
-  const { ok, data } = await post("/api/captcha/verify", { id: challengeId, answer: $("answer").value, behaviour: behaviourSummary() });
-  if (!ok) { setMsg(data.error, false); return; }
+  const { ok, data } = await post(
+    "/api/captcha/new",
+    params()
+  );
+
+  if (!ok) {
+    setMsg(data.error || "Could not load challenge.", false);
+    return;
+  }
+
   resetBehaviour();
+
   challengeId = data.id;
+
   $("shot").src = data.image;
+
   $("answer").value = "";
   $("answer").focus();
 }
 
+
+/* Show success/error message */
 function setMsg(text, good) {
   const el = $("msg");
+
   el.textContent = text;
+
   el.className = "msg " + (good ? "ok" : "bad");
 }
 
-knobs.forEach(k => {
-  $(k).addEventListener("input", () => { $("o-" + k).textContent = $(k).value; });
-  $(k).addEventListener("change", () => { setMsg("", true); loadChallenge(); });
-});
-$("refresh").addEventListener("click", () => { setMsg("", true); loadChallenge(); });
 
-$("answer-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const { ok, data } = await post("/api/captcha/verify", { id: challengeId, answer: $("answer").value });
-  if (!ok) { setMsg(data.error, false); loadChallenge(); return; }
-  tries++; if (data.correct) wins++;
-  setMsg(data.correct ? `Correct, solved in ${data.solve_time}s.` : "Not quite. Here is a fresh challenge.", data.correct);
-  $("tally").textContent = `${wins} of ${tries} solved this session.`;
+/* Difficulty sliders */
+knobs.forEach(k => {
+  $(k).addEventListener("input", () => {
+    $("o-" + k).textContent = $(k).value;
+  });
+
+  $(k).addEventListener("change", () => {
+    setMsg("", true);
+    loadChallenge();
+  });
+});
+
+
+/* New challenge button */
+$("refresh").addEventListener("click", () => {
+  setMsg("", true);
   loadChallenge();
 });
 
+
+/* Answer submission */
+$("answer-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!challengeId) {
+    setMsg("Please wait for a challenge to load.", false);
+    return;
+  }
+
+  const { ok, data } = await post(
+    "/api/captcha/verify",
+    {
+      id: challengeId,
+      answer: $("answer").value,
+      behaviour: behaviourSummary()
+    }
+  );
+
+  if (!ok) {
+    setMsg(data.error || "Verification failed.", false);
+    await loadChallenge();
+    return;
+  }
+
+  tries++;
+
+  if (data.correct) {
+    wins++;
+  }
+
+  setMsg(
+    data.correct
+      ? `Correct, solved in ${data.solve_time}s.`
+      : "Not quite. Here is a fresh challenge.",
+    data.correct
+  );
+
+  $("tally").textContent =
+    `${wins} of ${tries} solved this session.`;
+
+  /* The old challenge was already verified,
+     so now generate a completely NEW one. */
+  await loadChallenge();
+});
+
+
+/* Load first challenge when page opens */
 loadChallenge();
 </script>
+
 </body>
 </html>
