@@ -115,12 +115,89 @@ def stats():
 
 @bp.get("/api/monitor")
 def monitor():
-    """Development view: har session ka khulasa. Production mein admin-only karein."""
-    rows = get_db().execute(
-        "SELECT v.id, v.ip, v.created_at, v.last_seen, "
-        "COUNT(a.id) AS attempts, COALESCE(SUM(a.correct), 0) AS correct, "
-        "ROUND(AVG(a.risk), 2) AS avg_risk "
-        "FROM visitor_sessions v LEFT JOIN attempts a ON a.session_id = v.id "
-        "GROUP BY v.id ORDER BY v.last_seen DESC LIMIT 20"
+    """
+    Development monitoring view:
+    har session ka summary + latest behavioural attempt.
+
+    Production mein is endpoint ko admin-only karna chahiye.
+    """
+
+    conn = get_db()
+
+    # Session-level summary
+    rows = conn.execute(
+        """
+        SELECT
+            v.id,
+            v.ip,
+            v.created_at,
+            v.last_seen,
+            COUNT(a.id) AS attempts,
+            COALESCE(SUM(a.correct), 0) AS correct,
+            ROUND(AVG(a.risk), 2) AS avg_risk
+        FROM visitor_sessions v
+        LEFT JOIN attempts a
+            ON a.session_id = v.id
+        GROUP BY v.id
+        ORDER BY v.last_seen DESC
+        LIMIT 20
+        """
     ).fetchall()
-    return jsonify([dict(r) for r in rows])
+
+    result = []
+
+    for row in rows:
+        session_data = dict(row)
+
+        # Latest attempt for this session
+        latest = conn.execute(
+            """
+            SELECT
+                id,
+                correct,
+                solve_time,
+                behaviour,
+                risk,
+                ts
+            FROM attempts
+            WHERE session_id = ?
+            ORDER BY ts DESC
+            LIMIT 1
+            """,
+            (row["id"],),
+        ).fetchone()
+
+        if latest:
+            latest_data = dict(latest)
+
+            # behaviour JSON ko normal Python dictionary mein convert karein
+            try:
+                behaviour = json.loads(
+                    latest_data.get("behaviour") or "{}"
+                )
+            except (TypeError, json.JSONDecodeError):
+                behaviour = {}
+
+            session_data["latest_attempt"] = {
+                "id": latest_data["id"],
+                "correct": bool(latest_data["correct"]),
+                "solve_time": latest_data["solve_time"],
+                "timestamp": latest_data["ts"],
+                "risk": latest_data["risk"],
+                "behaviour": {
+                    "keys": behaviour.get("keys", 0),
+                    "moves": behaviour.get("moves", 0),
+                    "pasted": behaviour.get("pasted", False),
+                    "first_key_ms": behaviour.get("first_key_ms"),
+                    "key_gap_mean": behaviour.get("key_gap_mean", 0),
+                    "key_gap_std": behaviour.get("key_gap_std", 0),
+                    "reasons": behaviour.get("reasons", []),
+                },
+            }
+        else:
+            session_data["latest_attempt"] = None
+
+        result.append(session_data)
+
+    return jsonify(result)
+
