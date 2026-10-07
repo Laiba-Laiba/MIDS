@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform 9¾ · Text CAPTCHA generator</title>
+<style>
+  :root { --bg:#f2f4f8; --panel:#fff; --ink:#1c2740; --muted:#5d6985; --line:#d5dbe7; --accent:#c2362b; --ok:#1d7a4d; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:32px 20px 48px; }
+  h1 { font-size:1.75rem; margin:0 0 4px; letter-spacing:-.01em; }
+  .lede { color:var(--muted); margin:0 0 24px; max-width:60ch; }
+  .grid { display:grid; grid-template-columns:1.2fr 1fr; gap:20px; }
+  @media (max-width:720px){ .grid{ grid-template-columns:1fr; } }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; }
+  h2 { font-size:1rem; margin:0 0 14px; }
+  .shot { border:1px solid var(--line); border-radius:6px; background:#fff; display:block; width:100%; max-width:440px; }
+  .row { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  input[type=text] { flex:1; min-width:140px; font:600 1.25rem ui-monospace,Menlo,Consolas,monospace; letter-spacing:.2em; text-transform:uppercase; padding:10px 12px; border:1px solid var(--line); border-radius:6px; }
+  button { font:inherit; font-weight:600; padding:10px 16px; border-radius:6px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--ink); }
+  :is(button,input):focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+  .msg { min-height:1.5em; margin-top:12px; font-weight:600; }
+  .msg.ok { color:var(--ok); } .msg.bad { color:var(--accent); }
+  .knob { margin-bottom:18px; }
+  .knob label { display:flex; justify-content:space-between; font-weight:600; }
+  .knob small { display:block; color:var(--muted); }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .tally { color:var(--muted); font-size:.9rem; margin-top:8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Text CAPTCHA generator</h1>
+  <p class="lede">Each slider controls one kind of difficulty on its own. Move one, solve the new challenge, and see how readable it stays.</p>
+  <div class="grid">
+    <section aria-labelledby="solve-h">
+      <h2 id="solve-h">Solve this challenge</h2>
+      <img id="shot" class="shot" alt="CAPTCHA challenge: five characters to type" width="440" height="180">
+      <form id="answer-form" class="row" autocomplete="off">
+        <input id="answer" type="text" maxlength="8" aria-label="Characters you see" required>
+        <button type="submit">Check answer</button>
+        <button type="button" id="refresh" class="ghost">New challenge</button>
+      </form>
+      <div id="msg" class="msg" role="status"></div>
+      <div id="tally" class="tally">No attempts yet.</div>
+    </section>
+    <section aria-labelledby="knobs-h">
+      <h2 id="knobs-h">Difficulty</h2>
+      <div class="knob"><label for="distort">Distortion <output id="o-distort">0</output></label><small>Waves the text and shifts letters up and down</small>
+        <input id="distort" type="range" min="0" max="10" value="0"></div>
+      <div class="knob"><label for="noise">Noise <output id="o-noise">0</output></label><small>Adds lines, speckle and blur</small>
+        <input id="noise" type="range" min="0" max="10" value="0"></div>
+      <div class="knob"><label for="rotate">Rotation <output id="o-rotate">0</output></label><small>Tilts each letter by a random angle</small>
+        <input id="rotate" type="range" min="0" max="10" value="0"></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const knobs = ["distort", "noise", "rotate"];
+let challengeId = null, tries = 0, wins = 0;
+
+let beh, shownAt, lastKey;
+function resetBehaviour() {
+  beh = { keys: 0, moves: 0, pasted: false, first_key_ms: null, gaps: [] };
+  shownAt = performance.now(); lastKey = null;
+}
+resetBehaviour();
+document.addEventListener("pointermove", () => beh.moves++);
+$("answer").addEventListener("keydown", () => {
+  const t = performance.now();
+  beh.keys++;
+  if (beh.first_key_ms === null) beh.first_key_ms = Math.round(t - shownAt);
+  if (lastKey !== null) beh.gaps.push(t - lastKey);
+  lastKey = t;
+});
+$("answer").addEventListener("paste", () => { beh.pasted = true; });
+function behaviourSummary() {
+  const gp = beh.gaps, n = gp.length;
+  const mean = n ? gp.reduce((a, b) => a + b, 0) / n : 0;
+  const std = n ? Math.sqrt(gp.reduce((a, b) => a + (b - mean) ** 2, 0) / n) : 0;
+  return { keys: beh.keys, moves: beh.moves, pasted: beh.pasted, first_key_ms: beh.first_key_ms,
+           key_gap_mean: Math.round(mean), key_gap_std: Math.round(std) };
+}
+
+function params() { return Object.fromEntries(knobs.map(k => [k, Number($(k).value)])); }
+
+async function post(url, body) {
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  return { ok: res.ok, data: await res.json() };
+}
+
+async function loadChallenge() {
+  const { ok, data } = await post("/api/captcha/verify", { id: challengeId, answer: $("answer").value, behaviour: behaviourSummary() });
+  if (!ok) { setMsg(data.error, false); return; }
+  resetBehaviour();
+  challengeId = data.id;
+  $("shot").src = data.image;
+  $("answer").value = "";
+  $("answer").focus();
+}
+
+function setMsg(text, good) {
+  const el = $("msg");
+  el.textContent = text;
+  el.className = "msg " + (good ? "ok" : "bad");
+}
+
+knobs.forEach(k => {
+  $(k).addEventListener("input", () => { $("o-" + k).textContent = $(k).value; });
+  $(k).addEventListener("change", () => { setMsg("", true); loadChallenge(); });
+});
+$("refresh").addEventListener("click", () => { setMsg("", true); loadChallenge(); });
+
+$("answer-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const { ok, data } = await post("/api/captcha/verify", { id: challengeId, answer: $("answer").value });
+  if (!ok) { setMsg(data.error, false); loadChallenge(); return; }
+  tries++; if (data.correct) wins++;
+  setMsg(data.correct ? `Correct, solved in ${data.solve_time}s.` : "Not quite. Here is a fresh challenge.", data.correct);
+  $("tally").textContent = `${wins} of ${tries} solved this session.`;
+  loadChallenge();
+});
+
+loadChallenge();
+</script>
+</body>
+</html>
