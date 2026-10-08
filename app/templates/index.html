@@ -1,257 +1,3078 @@
 <!doctype html>
+
 <html lang="en">
+
 <head>
+
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Platform 9¾ · Text CAPTCHA generator</title>
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1"
+>
+
+<title>
+  Platform 9¾ · CAPTCHA Lab
+</title>
+
 <style>
-  :root { --bg:#f2f4f8; --panel:#fff; --ink:#1c2740; --muted:#5d6985; --line:#d5dbe7; --accent:#c2362b; --ok:#1d7a4d; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
-  main { max-width:880px; margin:0 auto; padding:32px 20px 48px; }
-  h1 { font-size:1.75rem; margin:0 0 4px; letter-spacing:-.01em; }
-  .lede { color:var(--muted); margin:0 0 24px; max-width:60ch; }
-  .grid { display:grid; grid-template-columns:1.2fr 1fr; gap:20px; }
-  @media (max-width:720px){ .grid{ grid-template-columns:1fr; } }
-  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; }
-  h2 { font-size:1rem; margin:0 0 14px; }
-  .shot { border:1px solid var(--line); border-radius:6px; background:#fff; display:block; width:100%; max-width:440px; }
-  .row { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
-  input[type=text] { flex:1; min-width:140px; font:600 1.25rem ui-monospace,Menlo,Consolas,monospace; letter-spacing:.2em; text-transform:uppercase; padding:10px 12px; border:1px solid var(--line); border-radius:6px; }
-  button { font:inherit; font-weight:600; padding:10px 16px; border-radius:6px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--ink); }
-  :is(button,input):focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
-  .msg { min-height:1.5em; margin-top:12px; font-weight:600; }
-  .msg.ok { color:var(--ok); } .msg.bad { color:var(--accent); }
-  .knob { margin-bottom:18px; }
-  .knob label { display:flex; justify-content:space-between; font-weight:600; }
-  .knob small { display:block; color:var(--muted); }
-  input[type=range] { width:100%; accent-color:var(--accent); }
-  .tally { color:var(--muted); font-size:.9rem; margin-top:8px; }
+
+  :root {
+    --bg:#f2f4f8;
+    --panel:#fff;
+    --ink:#1c2740;
+    --muted:#5d6985;
+    --line:#d5dbe7;
+    --accent:#c2362b;
+    --ok:#1d7a4d;
+  }
+
+  * {
+    box-sizing:border-box;
+  }
+
+  body {
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font:16px/1.5 system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+  }
+
+  main {
+    max-width:920px;
+    margin:0 auto;
+    padding:32px 20px 48px;
+  }
+
+  h1 {
+    font-size:1.75rem;
+    margin:0 0 4px;
+    letter-spacing:-.01em;
+  }
+
+  .lede {
+    color:var(--muted);
+    margin:0 0 24px;
+    max-width:70ch;
+  }
+
+  .grid {
+    display:grid;
+    grid-template-columns:1.2fr 1fr;
+    gap:20px;
+  }
+
+  @media (max-width:720px) {
+
+    .grid {
+      grid-template-columns:1fr;
+    }
+
+  }
+
+  section {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px;
+  }
+
+  h2 {
+    font-size:1rem;
+    margin:0 0 14px;
+  }
+
+  .mode-selector {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:18px;
+  }
+
+  .mode-button {
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--line);
+  }
+
+  .mode-button.active {
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+
+  .instruction {
+    color:var(--muted);
+    margin:0 0 12px;
+    font-weight:600;
+  }
+
+  .shot {
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:#fff;
+    display:block;
+    width:100%;
+    max-width:440px;
+    min-height:180px;
+    object-fit:contain;
+  }
+
+  .shot.image-selectable {
+    cursor:crosshair;
+  }
+
+  .row {
+    display:flex;
+    gap:10px;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+
+  input[type=text] {
+    flex:1;
+    min-width:140px;
+    font:600 1.25rem ui-monospace,
+      Menlo,
+      Consolas,
+      monospace;
+
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:6px;
+  }
+
+  button {
+    font:inherit;
+    font-weight:600;
+    padding:10px 16px;
+    border-radius:6px;
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:#fff;
+    cursor:pointer;
+  }
+
+  button.ghost {
+    background:transparent;
+    color:var(--ink);
+  }
+
+  button:disabled {
+    opacity:.5;
+    cursor:not-allowed;
+  }
+
+  :is(button,input):focus-visible {
+    outline:3px solid var(--accent);
+    outline-offset:2px;
+  }
+
+  .msg {
+    min-height:1.5em;
+    margin-top:12px;
+    font-weight:600;
+  }
+
+  .msg.ok {
+    color:var(--ok);
+  }
+
+  .msg.bad {
+    color:var(--accent);
+  }
+
+  .tally {
+    color:var(--muted);
+    font-size:.9rem;
+    margin-top:8px;
+  }
+
+  .knob {
+    margin-bottom:18px;
+  }
+
+  .knob label {
+    display:flex;
+    justify-content:space-between;
+    font-weight:600;
+  }
+
+  .knob small {
+    display:block;
+    color:var(--muted);
+  }
+
+  input[type=range] {
+    width:100%;
+    accent-color:var(--accent);
+  }
+
+  .hidden {
+    display:none !important;
+  }
+
+  /* ---------------------------------------------------------------
+     Puzzle
+  --------------------------------------------------------------- */
+
+  #puzzle-grid {
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:5px;
+    width:100%;
+    max-width:440px;
+    margin-top:12px;
+  }
+
+  .puzzle-tile {
+    position:relative;
+    aspect-ratio:1 / 1;
+    border:2px solid var(--line);
+    border-radius:5px;
+    background-repeat:no-repeat;
+    cursor:grab;
+    user-select:none;
+    touch-action:none;
+  }
+
+  .puzzle-tile:active {
+    cursor:grabbing;
+  }
+
+  .puzzle-tile.dragging {
+    opacity:.45;
+  }
+
+  .puzzle-tile-number {
+    position:absolute;
+    top:5px;
+    left:5px;
+    min-width:24px;
+    height:24px;
+    padding:2px 6px;
+    border-radius:12px;
+    background:rgba(0,0,0,.65);
+    color:#fff;
+    font-size:.8rem;
+    text-align:center;
+    line-height:20px;
+  }
+
+  .task-box {
+    margin-top:12px;
+  }
+
 </style>
+
 </head>
+
+
 <body>
+
 <main>
-  <h1>Text CAPTCHA generator</h1>
-  <p class="lede">Each slider controls one kind of difficulty on its own. Move one, solve the new challenge, and see how readable it stays.</p>
-  <div class="grid">
-    <section aria-labelledby="solve-h">
-      <h2 id="solve-h">Solve this challenge</h2>
-      <img id="shot" class="shot" alt="CAPTCHA challenge: five characters to type" width="440" height="180">
-      <form id="answer-form" class="row" autocomplete="off">
-        <input id="answer" type="text" maxlength="8" aria-label="Characters you see" required>
-        <button type="submit">Check answer</button>
-        <button type="button" id="refresh" class="ghost">New challenge</button>
-      </form>
-      <div id="msg" class="msg" role="status"></div>
-      <div id="tally" class="tally">No attempts yet.</div>
-    </section>
-    <section aria-labelledby="knobs-h">
-      <h2 id="knobs-h">Difficulty</h2>
-      <div class="knob"><label for="distort">Distortion <output id="o-distort">0</output></label><small>Waves the text and shifts letters up and down</small>
-        <input id="distort" type="range" min="0" max="10" value="0"></div>
-      <div class="knob"><label for="noise">Noise <output id="o-noise">0</output></label><small>Adds lines, speckle and blur</small>
-        <input id="noise" type="range" min="0" max="10" value="0"></div>
-      <div class="knob"><label for="rotate">Rotation <output id="o-rotate">0</output></label><small>Tilts each letter by a random angle</small>
-        <input id="rotate" type="range" min="0" max="10" value="0"></div>
-    </section>
+
+  <h1>
+    CAPTCHA Lab
+  </h1>
+
+  <p class="lede">
+    Select a challenge type and solve it.
+    Behavioural telemetry is collected per challenge
+    and the same session/risk monitoring layer is used
+    across all three modes.
+  </p>
+
+
+  <!-- =============================================================
+       MODE SELECTOR
+  ============================================================= -->
+
+  <div class="mode-selector">
+
+    <button
+      type="button"
+      class="mode-button active"
+      data-type="text"
+    >
+      Text CAPTCHA
+    </button>
+
+    <button
+      type="button"
+      class="mode-button"
+      data-type="image"
+    >
+      Image CAPTCHA
+    </button>
+
+    <button
+      type="button"
+      class="mode-button"
+      data-type="puzzle"
+    >
+      Puzzle CAPTCHA
+    </button>
+
   </div>
+
+
+  <div class="grid">
+
+
+    <!-- =========================================================
+         SOLVE AREA
+    ========================================================== -->
+
+    <section
+      aria-labelledby="solve-h"
+    >
+
+      <h2 id="solve-h">
+        Solve this challenge
+      </h2>
+
+
+      <p
+        id="instruction"
+        class="instruction"
+      >
+        Type the characters you see.
+      </p>
+
+
+      <!-- Challenge image -->
+
+      <img
+        id="shot"
+        class="shot"
+        alt="CAPTCHA challenge"
+        width="440"
+        height="260"
+      >
+
+
+      <!-- =======================================================
+           TEXT ANSWER
+      ======================================================== -->
+
+      <div
+        id="text-answer-area"
+      >
+
+        <form
+          id="answer-form"
+          class="row"
+          autocomplete="off"
+        >
+
+          <input
+            id="answer"
+            type="text"
+            maxlength="8"
+            aria-label="Characters you see"
+            required
+          >
+
+          <button
+            type="submit"
+          >
+            Check answer
+          </button>
+
+        </form>
+
+      </div>
+
+
+      <!-- =======================================================
+           IMAGE ANSWER
+      ======================================================== -->
+
+      <div
+        id="image-answer-area"
+        class="hidden"
+      >
+
+        <p class="task-box">
+          Click the requested object in the image.
+        </p>
+
+        <button
+          type="button"
+          id="image-submit"
+        >
+          Confirm selection
+        </button>
+
+      </div>
+
+
+      <!-- =======================================================
+           PUZZLE ANSWER
+      ======================================================== -->
+
+      <div
+        id="puzzle-answer-area"
+        class="hidden"
+      >
+
+        <div
+          id="puzzle-grid"
+          aria-label="Puzzle tiles"
+        ></div>
+
+        <div class="row">
+
+          <button
+            type="button"
+            id="puzzle-submit"
+          >
+            Check puzzle
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <!-- New challenge -->
+
+      <div class="row">
+
+        <button
+          type="button"
+          id="refresh"
+          class="ghost"
+        >
+          New challenge
+        </button>
+
+      </div>
+
+
+      <div
+        id="msg"
+        class="msg"
+        role="status"
+        aria-live="polite"
+      ></div>
+
+
+      <div
+        id="tally"
+        class="tally"
+      >
+        No attempts yet.
+      </div>
+
+    </section>
+
+
+    <!-- =========================================================
+         SETTINGS
+    ========================================================== -->
+
+    <section
+      aria-labelledby="settings-h"
+    >
+
+      <h2 id="settings-h">
+        Difficulty
+      </h2>
+
+
+      <!-- TEXT DIFFICULTY -->
+
+      <div id="text-settings">
+
+        <div class="knob">
+
+          <label for="distort">
+
+            Distortion
+
+            <output id="o-distort">
+              0
+            </output>
+
+          </label>
+
+          <small>
+            Waves the text and shifts letters
+            up and down.
+          </small>
+
+          <input
+            id="distort"
+            type="range"
+            min="0"
+            max="10"
+            value="0"
+          >
+
+        </div>
+
+
+        <div class="knob">
+
+          <label for="noise">
+
+            Noise
+
+            <output id="o-noise">
+              0
+            </output>
+
+          </label>
+
+          <small>
+            Adds lines, speckle and blur.
+          </small>
+
+          <input
+            id="noise"
+            type="range"
+            min="0"
+            max="10"
+            value="0"
+          >
+
+        </div>
+
+
+        <div class="knob">
+
+          <label for="rotate">
+
+            Rotation
+
+            <output id="o-rotate">
+              0
+            </output>
+
+          </label>
+
+          <small>
+            Tilts each letter by a random angle.
+          </small>
+
+          <input
+            id="rotate"
+            type="range"
+            min="0"
+            max="10"
+            value="0"
+          >
+
+        </div>
+
+      </div>
+
+
+      <!-- IMAGE SETTINGS -->
+
+      <div
+        id="image-settings"
+        class="hidden"
+      >
+
+        <div class="knob">
+
+          <label>
+
+            Image difficulty
+
+            <output id="o-image-difficulty">
+              3
+            </output>
+
+          </label>
+
+          <small>
+            Controls visual complexity.
+          </small>
+
+          <input
+            id="image-difficulty"
+            type="range"
+            min="0"
+            max="10"
+            value="3"
+          >
+
+        </div>
+
+
+        <div class="knob">
+
+          <label>
+
+            Objects
+
+            <output id="o-object-count">
+              6
+            </output>
+
+          </label>
+
+          <small>
+            Number of objects shown.
+          </small>
+
+          <input
+            id="object-count"
+            type="range"
+            min="3"
+            max="10"
+            value="6"
+          >
+
+        </div>
+
+      </div>
+
+
+      <!-- PUZZLE SETTINGS -->
+
+      <div
+        id="puzzle-settings"
+        class="hidden"
+      >
+
+        <div class="knob">
+
+          <label>
+
+            Puzzle difficulty
+
+            <output id="o-puzzle-difficulty">
+              3
+            </output>
+
+          </label>
+
+          <small>
+            Controls puzzle complexity.
+          </small>
+
+          <input
+            id="puzzle-difficulty"
+            type="range"
+            min="0"
+            max="10"
+            value="3"
+          >
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </div>
+
 </main>
+
+
 <script>
-const $ = (id) => document.getElementById(id);
-const knobs = ["distort", "noise", "rotate"];
+
+/* =================================================================
+   DOM helper
+================================================================= */
+
+const $ = (id) =>
+  document.getElementById(id);
+
+
+/* =================================================================
+   Global challenge state
+================================================================= */
 
 let challengeId = null;
+
+let challengeType = "text";
+
+let challengeTask = null;
+
 let tries = 0;
+
 let wins = 0;
 
-let beh, shownAt, lastKey;
+
+/* =================================================================
+   Image selection
+================================================================= */
+
+let selectedImagePoint = null;
+
+
+/* =================================================================
+   Puzzle state
+================================================================= */
+
+let puzzleMoves = 0;
+
+let puzzleSwaps = 0;
+
+
+/* =================================================================
+   Behaviour state
+================================================================= */
+
+let beh;
+
+let shownAt = 0;
+
+let lastKeyDown = null;
+
+let keyDownTimes = new Map();
+
+let lastPointer = null;
+
+let lastPointerTime = null;
+
+let hiddenStartedAt = null;
+
+
+/* =================================================================
+   Reset behaviour
+================================================================= */
 
 function resetBehaviour() {
+
   beh = {
+
+    /* Keyboard */
+
     keys: 0,
-    moves: 0,
-    pasted: false,
+
+    backspaces: 0,
+
+    deletes: 0,
+
+    corrections: 0,
+
     first_key_ms: null,
-    gaps: []
+
+    typing_duration_ms: 0,
+
+    typing_speed_cpm: 0,
+
+    key_gaps: [],
+
+    key_hold_times: [],
+
+
+    /* Pointer */
+
+    pointer_moves: 0,
+
+    pointer_distance: 0,
+
+    pointer_duration_ms: 0,
+
+    pointer_avg_speed: 0,
+
+    pointer_max_speed: 0,
+
+    pointer_direction_changes: 0,
+
+    pointer_pauses: 0,
+
+
+    /* Pointer interaction */
+
+    clicks: 0,
+
+    pointer_downs: 0,
+
+    pointer_types: {},
+
+
+    /* Form */
+
+    focus_count: 0,
+
+    blur_count: 0,
+
+    refocus_count: 0,
+
+    input_events: 0,
+
+
+    /* Clipboard */
+
+    pasted: false,
+
+    paste_count: 0,
+
+    copied: false,
+
+    copy_count: 0,
+
+    cut: false,
+
+    cut_count: 0,
+
+
+    /* Page */
+
+    scroll_events: 0,
+
+    visibility_changes: 0,
+
+    hidden_time_ms: 0,
+
+
+    /* General */
+
+    first_interaction_ms: null,
+
+    interaction_events: 0,
+
+    final_input_length: 0,
+
+
+    /* Image */
+
+    image_selections: 0,
+
+    image_wrong_selections: 0,
+
+
+    /* Puzzle */
+
+    puzzle_moves: 0,
+
+    puzzle_swaps: 0
   };
 
-  shownAt = performance.now();
-  lastKey = null;
+
+  shownAt =
+    performance.now();
+
+
+  lastKeyDown = null;
+
+  keyDownTimes.clear();
+
+  lastPointer = null;
+
+  lastPointerTime = null;
+
+  hiddenStartedAt = null;
+
+  puzzleMoves = 0;
+
+  puzzleSwaps = 0;
 }
 
-resetBehaviour();
 
-document.addEventListener("pointermove", () => beh.moves++);
+/* =================================================================
+   Generic interaction
+================================================================= */
 
-$("answer").addEventListener("keydown", () => {
-  const t = performance.now();
+function recordInteraction() {
 
-  beh.keys++;
-
-  if (beh.first_key_ms === null) {
-    beh.first_key_ms = Math.round(t - shownAt);
+  if (!beh) {
+    return;
   }
 
-  if (lastKey !== null) {
-    beh.gaps.push(t - lastKey);
+  const now =
+    performance.now();
+
+  beh.interaction_events++;
+
+  if (
+    beh.first_interaction_ms === null
+  ) {
+
+    beh.first_interaction_ms =
+      Math.round(
+        now - shownAt
+      );
+  }
+}
+
+
+/* =================================================================
+   Pointer tracking
+================================================================= */
+
+document.addEventListener(
+  "pointermove",
+  (event) => {
+
+    if (!beh) {
+      return;
+    }
+
+    recordInteraction();
+
+    const now =
+      performance.now();
+
+    beh.pointer_moves++;
+
+
+    if (event.pointerType) {
+
+      beh.pointer_types[
+        event.pointerType
+      ] =
+        (
+          beh.pointer_types[
+            event.pointerType
+          ] || 0
+        ) + 1;
+    }
+
+
+    if (
+      lastPointer !== null &&
+      lastPointerTime !== null
+    ) {
+
+      const dx =
+        event.clientX -
+        lastPointer.x;
+
+      const dy =
+        event.clientY -
+        lastPointer.y;
+
+      const distance =
+        Math.sqrt(
+          dx * dx +
+          dy * dy
+        );
+
+      const dt =
+        now -
+        lastPointerTime;
+
+
+      if (distance > 0) {
+
+        beh.pointer_distance +=
+          distance;
+
+
+        if (dt > 0) {
+
+          const speed =
+            distance / dt;
+
+          beh.pointer_duration_ms +=
+            dt;
+
+          beh.pointer_max_speed =
+            Math.max(
+              beh.pointer_max_speed,
+              speed
+            );
+
+
+          if (dt > 700) {
+
+            beh.pointer_pauses++;
+          }
+        }
+      }
+
+
+      if (
+        lastPointer.dx !== undefined &&
+        lastPointer.dy !== undefined
+      ) {
+
+        const previousAngle =
+          Math.atan2(
+            lastPointer.dy,
+            lastPointer.dx
+          );
+
+        const currentAngle =
+          Math.atan2(
+            dy,
+            dx
+          );
+
+        let angleDifference =
+          Math.abs(
+            currentAngle -
+            previousAngle
+          );
+
+
+        if (
+          angleDifference >
+          Math.PI
+        ) {
+
+          angleDifference =
+            2 * Math.PI -
+            angleDifference;
+        }
+
+
+        if (
+          distance > 3 &&
+          angleDifference >
+            Math.PI / 4
+        ) {
+
+          beh.pointer_direction_changes++;
+        }
+      }
+
+
+      lastPointer.dx = dx;
+
+      lastPointer.dy = dy;
+
+    } else {
+
+      lastPointer = {
+
+        x: event.clientX,
+
+        y: event.clientY,
+
+        dx: 0,
+
+        dy: 0
+      };
+    }
+
+
+    lastPointer.x =
+      event.clientX;
+
+    lastPointer.y =
+      event.clientY;
+
+    lastPointerTime =
+      now;
+  }
+);
+
+
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+
+    if (!beh) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.pointer_downs++;
+
+
+    if (event.pointerType) {
+
+      beh.pointer_types[
+        event.pointerType
+      ] =
+        (
+          beh.pointer_types[
+            event.pointerType
+          ] || 0
+        ) + 1;
+    }
+  }
+);
+
+
+document.addEventListener(
+  "click",
+  () => {
+
+    if (!beh) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.clicks++;
+  }
+);
+
+
+/* =================================================================
+   Keyboard
+================================================================= */
+
+$("answer").addEventListener(
+  "keydown",
+  (event) => {
+
+    if (
+      challengeType !== "text" ||
+      event.repeat
+    ) {
+      return;
+    }
+
+    recordInteraction();
+
+    const now =
+      performance.now();
+
+    beh.keys++;
+
+
+    if (
+      beh.first_key_ms === null
+    ) {
+
+      beh.first_key_ms =
+        Math.round(
+          now - shownAt
+        );
+    }
+
+
+    if (
+      lastKeyDown !== null
+    ) {
+
+      beh.key_gaps.push(
+        now -
+        lastKeyDown
+      );
+    }
+
+
+    lastKeyDown =
+      now;
+
+
+    keyDownTimes.set(
+      event.code,
+      now
+    );
+
+
+    if (
+      event.key === "Backspace"
+    ) {
+
+      beh.backspaces++;
+
+      beh.corrections++;
+    }
+
+
+    if (
+      event.key === "Delete"
+    ) {
+
+      beh.deletes++;
+
+      beh.corrections++;
+    }
+  }
+);
+
+
+$("answer").addEventListener(
+  "keyup",
+  (event) => {
+
+    if (
+      challengeType !== "text"
+    ) {
+      return;
+    }
+
+    const started =
+      keyDownTimes.get(
+        event.code
+      );
+
+
+    if (
+      started === undefined
+    ) {
+      return;
+    }
+
+
+    const duration =
+      performance.now() -
+      started;
+
+
+    beh.key_hold_times.push(
+      duration
+    );
+
+
+    keyDownTimes.delete(
+      event.code
+    );
+  }
+);
+
+
+/* =================================================================
+   Text input
+================================================================= */
+
+$("answer").addEventListener(
+  "input",
+  () => {
+
+    if (
+      challengeType !== "text"
+    ) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.input_events++;
+
+    beh.final_input_length =
+      $("answer").value.length;
+  }
+);
+
+
+$("answer").addEventListener(
+  "focus",
+  () => {
+
+    if (
+      challengeType !== "text"
+    ) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.focus_count++;
+
+    if (
+      beh.focus_count > 1
+    ) {
+
+      beh.refocus_count++;
+    }
+  }
+);
+
+
+$("answer").addEventListener(
+  "blur",
+  () => {
+
+    if (
+      challengeType !== "text"
+    ) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.blur_count++;
+  }
+);
+
+
+/* =================================================================
+   Clipboard
+================================================================= */
+
+$("answer").addEventListener(
+  "paste",
+  () => {
+
+    if (
+      challengeType !== "text"
+    ) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.pasted = true;
+
+    beh.paste_count++;
+  }
+);
+
+
+$("answer").addEventListener(
+  "copy",
+  () => {
+
+    if (
+      challengeType !== "text"
+    ) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.copied = true;
+
+    beh.copy_count++;
+  }
+);
+
+
+$("answer").addEventListener(
+  "cut",
+  () => {
+
+    if (
+      challengeType !== "text"
+    ) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.cut = true;
+
+    beh.cut_count++;
+  }
+);
+
+
+/* =================================================================
+   Scroll
+================================================================= */
+
+window.addEventListener(
+  "scroll",
+  () => {
+
+    if (!beh) {
+      return;
+    }
+
+    recordInteraction();
+
+    beh.scroll_events++;
+  },
+  {
+    passive:true
+  }
+);
+
+
+/* =================================================================
+   Visibility
+================================================================= */
+
+document.addEventListener(
+  "visibilitychange",
+  () => {
+
+    if (!beh) {
+      return;
+    }
+
+    beh.visibility_changes++;
+
+
+    if (
+      document.hidden
+    ) {
+
+      hiddenStartedAt =
+        performance.now();
+
+    } else if (
+      hiddenStartedAt !== null
+    ) {
+
+      beh.hidden_time_ms +=
+        performance.now() -
+        hiddenStartedAt;
+
+      hiddenStartedAt = null;
+    }
+  }
+);
+
+
+/* =================================================================
+   Statistics
+================================================================= */
+
+function mean(values) {
+
+  if (
+    !values.length
+  ) {
+    return 0;
   }
 
-  lastKey = t;
-});
+  return (
+    values.reduce(
+      (sum, value) =>
+        sum + value,
+      0
+    ) /
+    values.length
+  );
+}
 
-$("answer").addEventListener("paste", () => {
-  beh.pasted = true;
-});
+
+function standardDeviation(values) {
+
+  if (
+    values.length < 2
+  ) {
+    return 0;
+  }
+
+  const avg =
+    mean(values);
+
+  return Math.sqrt(
+    values.reduce(
+      (sum, value) =>
+        sum +
+        (value - avg) ** 2,
+      0
+    ) /
+    values.length
+  );
+}
+
+
+/* =================================================================
+   Behaviour summary
+================================================================= */
 
 function behaviourSummary() {
-  const gp = beh.gaps;
-  const n = gp.length;
 
-  const mean = n
-    ? gp.reduce((a, b) => a + b, 0) / n
-    : 0;
+  const now =
+    performance.now();
 
-  const std = n
-    ? Math.sqrt(
-        gp.reduce((a, b) => a + (b - mean) ** 2, 0) / n
+
+  let totalHidden =
+    beh.hidden_time_ms;
+
+
+  if (
+    hiddenStartedAt !== null
+  ) {
+
+    totalHidden +=
+      now -
+      hiddenStartedAt;
+  }
+
+
+  const keyGapMean =
+    mean(
+      beh.key_gaps
+    );
+
+
+  const keyGapStd =
+    standardDeviation(
+      beh.key_gaps
+    );
+
+
+  const holdMean =
+    mean(
+      beh.key_hold_times
+    );
+
+
+  const holdStd =
+    standardDeviation(
+      beh.key_hold_times
+    );
+
+
+  const pointerDuration =
+    beh.pointer_duration_ms;
+
+
+  const pointerDistance =
+    beh.pointer_distance;
+
+
+  let pointerAverageSpeed = 0;
+
+
+  if (
+    pointerDuration > 0
+  ) {
+
+    pointerAverageSpeed =
+      pointerDistance /
+      pointerDuration;
+  }
+
+
+  const typingDuration =
+    beh.first_key_ms !== null &&
+    lastKeyDown !== null
+      ? Math.max(
+          0,
+          Math.round(
+            now -
+            (
+              shownAt +
+              beh.first_key_ms
+            )
+          )
+        )
+      : 0;
+
+
+  let typingSpeed = 0;
+
+
+  if (
+    typingDuration > 0
+  ) {
+
+    typingSpeed =
+      beh.keys /
+      (
+        typingDuration /
+        60000
+      );
+  }
+
+
+  if (
+    challengeType === "text"
+  ) {
+
+    beh.final_input_length =
+      $("answer").value.length;
+
+  } else {
+
+    beh.final_input_length = 0;
+  }
+
+
+  return {
+
+    challenge_type:
+      challengeType,
+
+
+    /* Keyboard */
+
+    keys:
+      beh.keys,
+
+    backspaces:
+      beh.backspaces,
+
+    deletes:
+      beh.deletes,
+
+    corrections:
+      beh.corrections,
+
+    first_key_ms:
+      beh.first_key_ms,
+
+    typing_duration_ms:
+      Math.round(
+        typingDuration
+      ),
+
+    typing_speed_cpm:
+      Math.round(
+        typingSpeed
+      ),
+
+    key_gap_mean:
+      Math.round(
+        keyGapMean
+      ),
+
+    key_gap_std:
+      Math.round(
+        keyGapStd
+      ),
+
+    key_hold_mean:
+      Math.round(
+        holdMean
+      ),
+
+    key_hold_std:
+      Math.round(
+        holdStd
+      ),
+
+
+    /* Pointer */
+
+    pointer_moves:
+      beh.pointer_moves,
+
+    pointer_distance:
+      Math.round(
+        pointerDistance
+      ),
+
+    pointer_duration_ms:
+      Math.round(
+        pointerDuration
+      ),
+
+    pointer_avg_speed:
+      Number(
+        pointerAverageSpeed.toFixed(3)
+      ),
+
+    pointer_max_speed:
+      Number(
+        beh.pointer_max_speed.toFixed(3)
+      ),
+
+    pointer_direction_changes:
+      beh.pointer_direction_changes,
+
+    pointer_pauses:
+      beh.pointer_pauses,
+
+
+    /* Pointer interaction */
+
+    clicks:
+      beh.clicks,
+
+    pointer_downs:
+      beh.pointer_downs,
+
+    pointer_types:
+      beh.pointer_types,
+
+
+    /* Form */
+
+    focus_count:
+      beh.focus_count,
+
+    blur_count:
+      beh.blur_count,
+
+    refocus_count:
+      beh.refocus_count,
+
+    input_events:
+      beh.input_events,
+
+
+    /* Clipboard */
+
+    pasted:
+      beh.pasted,
+
+    paste_count:
+      beh.paste_count,
+
+    copied:
+      beh.copied,
+
+    copy_count:
+      beh.copy_count,
+
+    cut:
+      beh.cut,
+
+    cut_count:
+      beh.cut_count,
+
+
+    /* Page */
+
+    scroll_events:
+      beh.scroll_events,
+
+    visibility_changes:
+      beh.visibility_changes,
+
+    hidden_time_ms:
+      Math.round(
+        totalHidden
+      ),
+
+
+    /* General */
+
+    first_interaction_ms:
+      beh.first_interaction_ms,
+
+    interaction_events:
+      beh.interaction_events,
+
+    final_input_length:
+      beh.final_input_length,
+
+
+    /* Image */
+
+    image_selections:
+      beh.image_selections,
+
+    image_wrong_selections:
+      beh.image_wrong_selections,
+
+
+    /* Puzzle */
+
+    puzzle_moves:
+      beh.puzzle_moves,
+
+    puzzle_swaps:
+      beh.puzzle_swaps
+  };
+}
+
+
+/* =================================================================
+   HTTP
+================================================================= */
+
+async function post(
+  url,
+  body
+) {
+
+  const res =
+    await fetch(
+      url,
+      {
+        method:"POST",
+
+        headers:{
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify(body)
+      }
+    );
+
+
+  let data = {};
+
+  try {
+
+    data =
+      await res.json();
+
+  } catch (_) {
+
+    data = {
+      error:
+        "Invalid server response."
+    };
+  }
+
+
+  return {
+    ok:res.ok,
+    data:data
+  };
+}
+
+
+/* =================================================================
+   Parameters
+================================================================= */
+
+function textParams() {
+
+  return {
+
+    distort:
+      Number(
+        $("distort").value
+      ),
+
+    noise:
+      Number(
+        $("noise").value
+      ),
+
+    rotate:
+      Number(
+        $("rotate").value
       )
-    : 0;
-
-  return {
-    keys: beh.keys,
-    moves: beh.moves,
-    pasted: beh.pasted,
-    first_key_ms: beh.first_key_ms,
-    key_gap_mean: Math.round(mean),
-    key_gap_std: Math.round(std)
-  };
-}
-
-function params() {
-  return Object.fromEntries(
-    knobs.map(k => [k, Number($(k).value)])
-  );
-}
-
-async function post(url, body) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
-
-  return {
-    ok: res.ok,
-    data: await res.json()
   };
 }
 
 
-/* Generate a NEW challenge */
-async function loadChallenge() {
-  const { ok, data } = await post(
-    "/api/captcha/new",
-    params()
-  );
+function currentParams() {
+
+  if (
+    challengeType === "text"
+  ) {
+
+    return {
+      type:"text",
+      ...textParams()
+    };
+  }
+
+
+  if (
+    challengeType === "image"
+  ) {
+
+    return {
+
+      type:"image",
+
+      difficulty:
+        Number(
+          $("image-difficulty").value
+        ),
+
+      object_count:
+        Number(
+          $("object-count").value
+        )
+    };
+  }
+
+
+  return {
+
+    type:"puzzle",
+
+    difficulty:
+      Number(
+        $("puzzle-difficulty").value
+      )
+  };
+}
+
+
+/* =================================================================
+   UI mode
+================================================================= */
+
+function updateModeUI() {
+
+  const isText =
+    challengeType === "text";
+
+  const isImage =
+    challengeType === "image";
+
+  const isPuzzle =
+    challengeType === "puzzle";
+
+
+  $("text-answer-area")
+    .classList.toggle(
+      "hidden",
+      !isText
+    );
+
+
+  $("image-answer-area")
+    .classList.toggle(
+      "hidden",
+      !isImage
+    );
+
+
+  $("puzzle-answer-area")
+    .classList.toggle(
+      "hidden",
+      !isPuzzle
+    );
+
+
+  $("text-settings")
+    .classList.toggle(
+      "hidden",
+      !isText
+    );
+
+
+  $("image-settings")
+    .classList.toggle(
+      "hidden",
+      !isImage
+    );
+
+
+  $("puzzle-settings")
+    .classList.toggle(
+      "hidden",
+      !isPuzzle
+    );
+
+
+  $("shot")
+    .classList.toggle(
+      "image-selectable",
+      isImage
+    );
+
+
+  document
+    .querySelectorAll(
+      ".mode-button"
+    )
+    .forEach(
+      button => {
+
+        button.classList.toggle(
+          "active",
+          button.dataset.type ===
+            challengeType
+        );
+      }
+    );
+}
+
+
+/* =================================================================
+   Render challenge
+================================================================= */
+
+function renderChallenge(data) {
+
+  challengeTask =
+    data.task || null;
+
+
+  updateModeUI();
+
+
+  if (
+    data.type === "text"
+  ) {
+
+    $("instruction")
+      .textContent =
+        "Type the characters you see.";
+
+    $("shot").alt =
+      "Text CAPTCHA challenge";
+  }
+
+
+  else if (
+    data.type === "image"
+  ) {
+
+    const target =
+      data.task &&
+      data.task.target
+        ? data.task.target
+        : "requested object";
+
+
+    $("instruction")
+      .textContent =
+        `Click the ${target}.`;
+
+    $("shot").alt =
+      "Image CAPTCHA challenge";
+  }
+
+
+  else if (
+    data.type === "puzzle"
+  ) {
+
+    $("instruction")
+      .textContent =
+        "Arrange the image tiles correctly.";
+
+    $("shot").alt =
+      "Puzzle source image";
+
+    createPuzzleGrid(
+      data.task
+    );
+  }
+}
+
+
+/* =================================================================
+   Load challenge
+================================================================= */
+
+async function loadChallenge(
+  type = challengeType
+) {
+
+  challengeType =
+    type;
+
+
+  selectedImagePoint =
+    null;
+
+
+  puzzleMoves =
+    0;
+
+  puzzleSwaps =
+    0;
+
+
+  updateModeUI();
+
+
+  const body =
+    currentParams();
+
+
+  const {
+    ok,
+    data
+  } =
+    await post(
+      "/api/captcha/new",
+      body
+    );
+
 
   if (!ok) {
-    setMsg(data.error || "Could not load challenge.", false);
+
+    setMsg(
+      data.error ||
+        "Could not load challenge.",
+      false
+    );
+
     return;
   }
 
-  resetBehaviour();
 
-  challengeId = data.id;
+  challengeId =
+    data.id;
 
-  $("shot").src = data.image;
 
-  $("answer").value = "";
-  $("answer").focus();
+  challengeType =
+    data.type;
+
+
+  challengeTask =
+    data.task || null;
+
+
+  $("shot").src =
+    data.image;
+
+
+  $("answer").value =
+    "";
+
+
+  renderChallenge(
+    data
+  );
+
+
+  $("shot").onload =
+    () => {
+
+      resetBehaviour();
+
+
+      if (
+        challengeType === "text"
+      ) {
+
+        $("answer").focus();
+      }
+    };
 }
 
 
-/* Show success/error message */
-function setMsg(text, good) {
-  const el = $("msg");
+/* =================================================================
+   Image click
+================================================================= */
 
-  el.textContent = text;
+$("shot").addEventListener(
+  "click",
+  (event) => {
 
-  el.className = "msg " + (good ? "ok" : "bad");
-}
-
-
-/* Difficulty sliders */
-knobs.forEach(k => {
-  $(k).addEventListener("input", () => {
-    $("o-" + k).textContent = $(k).value;
-  });
-
-  $(k).addEventListener("change", () => {
-    setMsg("", true);
-    loadChallenge();
-  });
-});
+    if (
+      challengeType !== "image"
+    ) {
+      return;
+    }
 
 
-/* New challenge button */
-$("refresh").addEventListener("click", () => {
-  setMsg("", true);
-  loadChallenge();
-});
+    recordInteraction();
 
 
-/* Answer submission */
-$("answer-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+    const rect =
+      $("shot")
+        .getBoundingClientRect();
 
-  if (!challengeId) {
-    setMsg("Please wait for a challenge to load.", false);
-    return;
+
+    if (
+      rect.width <= 0 ||
+      rect.height <= 0
+    ) {
+      return;
+    }
+
+
+    const naturalWidth =
+      $("shot").naturalWidth ||
+      440;
+
+
+    const naturalHeight =
+      $("shot").naturalHeight ||
+      260;
+
+
+    const scaleX =
+      naturalWidth /
+      rect.width;
+
+
+    const scaleY =
+      naturalHeight /
+      rect.height;
+
+
+    selectedImagePoint = {
+
+      x:
+        (
+          event.clientX -
+          rect.left
+        ) * scaleX,
+
+      y:
+        (
+          event.clientY -
+          rect.top
+        ) * scaleY
+    };
+
+
+    beh.image_selections++;
   }
+);
 
-  const { ok, data } = await post(
-    "/api/captcha/verify",
-    {
-      id: challengeId,
-      answer: $("answer").value,
-      behaviour: behaviourSummary()
+
+/* =================================================================
+   Image submit
+================================================================= */
+
+$("image-submit")
+  .addEventListener(
+    "click",
+    async () => {
+
+      if (
+        !selectedImagePoint
+      ) {
+
+        setMsg(
+          "Click an object first.",
+          false
+        );
+
+        return;
+      }
+
+
+      await submitChallenge(
+        selectedImagePoint
+      );
     }
   );
 
-  if (!ok) {
-    setMsg(data.error || "Verification failed.", false);
-    await loadChallenge();
+
+/* =================================================================
+   Puzzle creation
+================================================================= */
+
+function createPuzzleGrid(
+  task
+) {
+
+  const grid =
+    $("puzzle-grid");
+
+
+  grid.innerHTML =
+    "";
+
+
+  const rows =
+    Number(
+      task?.rows || 2
+    );
+
+
+  const cols =
+    Number(
+      task?.cols || 2
+    );
+
+
+  const tileCount =
+    rows * cols;
+
+
+  /*
+   * Start with correct tile IDs,
+   * then shuffle them.
+   */
+  const order =
+    Array.from(
+      {
+        length:tileCount
+      },
+      (_, index) =>
+        index
+    );
+
+
+  /*
+   * Fisher-Yates shuffle.
+   */
+  for (
+    let i = order.length - 1;
+    i > 0;
+    i--
+  ) {
+
+    const j =
+      Math.floor(
+        Math.random() *
+        (i + 1)
+      );
+
+
+    [
+      order[i],
+      order[j]
+    ] =
+    [
+      order[j],
+      order[i]
+    ];
+  }
+
+
+  /*
+   * Avoid accidentally starting
+   * already solved.
+   */
+  let solved =
+    order.every(
+      (value, index) =>
+        value === index
+    );
+
+
+  if (
+    solved &&
+    order.length > 1
+  ) {
+
+    [
+      order[0],
+      order[1]
+    ] =
+    [
+      order[1],
+      order[0]
+    ];
+  }
+
+
+  grid.style.gridTemplateColumns =
+    `repeat(${cols}, 1fr)`;
+
+
+  order.forEach(
+    tileNumber => {
+
+      const tile =
+        document.createElement(
+          "div"
+        );
+
+
+      tile.className =
+        "puzzle-tile";
+
+
+      tile.draggable =
+        true;
+
+
+      tile.dataset.tile =
+        String(tileNumber);
+
+
+      const row =
+        Math.floor(
+          tileNumber / cols
+        );
+
+
+      const col =
+        tileNumber % cols;
+
+
+      /*
+       * Background uses the original
+       * challenge image.
+       */
+      const x =
+        cols === 1
+          ? 0
+          : (
+              col /
+              (cols - 1)
+            ) * 100;
+
+
+      const y =
+        rows === 1
+          ? 0
+          : (
+              row /
+              (rows - 1)
+            ) * 100;
+
+
+      tile.style.backgroundImage =
+        `url("${$("shot").src}")`;
+
+
+      tile.style.backgroundSize =
+        `${cols * 100}% ${rows * 100}%`;
+
+
+      tile.style.backgroundPosition =
+        `${x}% ${y}%`;
+
+
+      const number =
+        document.createElement(
+          "span"
+        );
+
+
+      number.className =
+        "puzzle-tile-number";
+
+
+      number.textContent =
+        tileNumber + 1;
+
+
+      tile.appendChild(
+        number
+      );
+
+
+      tile.addEventListener(
+        "dragstart",
+        () => {
+
+          recordInteraction();
+
+          tile.classList.add(
+            "dragging"
+          );
+        }
+      );
+
+
+      tile.addEventListener(
+        "dragend",
+        () => {
+
+          tile.classList.remove(
+            "dragging"
+          );
+        }
+      );
+
+
+      tile.addEventListener(
+        "dragover",
+        event => {
+
+          event.preventDefault();
+
+          recordInteraction();
+        }
+      );
+
+
+      tile.addEventListener(
+        "drop",
+        event => {
+
+          event.preventDefault();
+
+          swapPuzzleTiles(
+            tile
+          );
+        }
+      );
+
+
+      /*
+       * Click-to-swap fallback.
+       * This makes the puzzle easier to use
+       * on devices where drag/drop is limited.
+       */
+      tile.addEventListener(
+        "click",
+        () => {
+
+          handlePuzzleClick(
+            tile
+          );
+        }
+      );
+
+
+      grid.appendChild(
+        tile
+      );
+    }
+  );
+}
+
+
+/* =================================================================
+   Puzzle drag/drop
+================================================================= */
+
+function swapPuzzleTiles(
+  target
+) {
+
+  const dragging =
+    document.querySelector(
+      ".puzzle-tile.dragging"
+    );
+
+
+  if (
+    !dragging ||
+    dragging === target
+  ) {
     return;
   }
 
+
+  const parent =
+    target.parentNode;
+
+
+  const targetNext =
+    target.nextSibling;
+
+
+  parent.insertBefore(
+    dragging,
+    target
+  );
+
+
+  if (
+    targetNext
+  ) {
+
+    parent.insertBefore(
+      target,
+      targetNext
+    );
+
+  } else {
+
+    parent.appendChild(
+      target
+    );
+  }
+
+
+  puzzleMoves++;
+
+  puzzleSwaps++;
+
+  beh.puzzle_moves =
+    puzzleMoves;
+
+  beh.puzzle_swaps =
+    puzzleSwaps;
+
+  recordInteraction();
+}
+
+
+/* =================================================================
+   Puzzle click-to-swap
+================================================================= */
+
+let selectedPuzzleTile =
+  null;
+
+
+function handlePuzzleClick(
+  tile
+) {
+
+  if (
+    challengeType !== "puzzle"
+  ) {
+    return;
+  }
+
+
+  recordInteraction();
+
+
+  if (
+    selectedPuzzleTile === null
+  ) {
+
+    selectedPuzzleTile =
+      tile;
+
+    tile.classList.add(
+      "dragging"
+    );
+
+    return;
+  }
+
+
+  if (
+    selectedPuzzleTile === tile
+  ) {
+
+    tile.classList.remove(
+      "dragging"
+    );
+
+    selectedPuzzleTile =
+      null;
+
+    return;
+  }
+
+
+  const grid =
+    $("puzzle-grid");
+
+
+  const children =
+    Array.from(
+      grid.children
+    );
+
+
+  const firstIndex =
+    children.indexOf(
+      selectedPuzzleTile
+    );
+
+
+  const secondIndex =
+    children.indexOf(
+      tile
+    );
+
+
+  if (
+    firstIndex < 0 ||
+    secondIndex < 0
+  ) {
+    return;
+  }
+
+
+  if (
+    firstIndex <
+    secondIndex
+  ) {
+
+    grid.insertBefore(
+      tile,
+      selectedPuzzleTile
+    );
+
+    grid.insertBefore(
+      selectedPuzzleTile,
+      children[secondIndex]
+        ?.nextSibling || null
+    );
+
+  } else {
+
+    grid.insertBefore(
+      selectedPuzzleTile,
+      tile
+    );
+
+    grid.insertBefore(
+      tile,
+      children[firstIndex]
+        ?.nextSibling || null
+    );
+  }
+
+
+  selectedPuzzleTile
+    .classList.remove(
+      "dragging"
+    );
+
+
+  selectedPuzzleTile =
+    null;
+
+
+  puzzleMoves++;
+
+  puzzleSwaps++;
+
+  beh.puzzle_moves =
+    puzzleMoves;
+
+  beh.puzzle_swaps =
+    puzzleSwaps;
+}
+
+
+/* =================================================================
+   Puzzle answer
+================================================================= */
+
+function getPuzzleAnswer() {
+
+  return [
+    ...document.querySelectorAll(
+      "#puzzle-grid .puzzle-tile"
+    )
+  ].map(
+    tile =>
+      Number(
+        tile.dataset.tile
+      )
+  );
+}
+
+
+/* =================================================================
+   Puzzle submit
+================================================================= */
+
+$("puzzle-submit")
+  .addEventListener(
+    "click",
+    async () => {
+
+      await submitChallenge(
+        getPuzzleAnswer()
+      );
+    }
+  );
+
+
+/* =================================================================
+   Common submit
+================================================================= */
+
+async function submitChallenge(
+  answer
+) {
+
+  if (!challengeId) {
+
+    setMsg(
+      "Please wait for a challenge to load.",
+      false
+    );
+
+    return;
+  }
+
+
+  const behaviour =
+    behaviourSummary();
+
+
+  const {
+    ok,
+    data
+  } =
+    await post(
+      "/api/captcha/verify",
+      {
+        id:challengeId,
+
+        answer:answer,
+
+        behaviour:behaviour
+      }
+    );
+
+
+  if (!ok) {
+
+    setMsg(
+      data.error ||
+        "Verification failed.",
+      false
+    );
+
+
+    await loadChallenge(
+      challengeType
+    );
+
+    return;
+  }
+
+
   tries++;
 
-  if (data.correct) {
+
+  if (
+    data.correct
+  ) {
+
     wins++;
   }
 
+
   setMsg(
+
     data.correct
       ? `Correct, solved in ${data.solve_time}s.`
       : "Not quite. Here is a fresh challenge.",
+
     data.correct
   );
+
 
   $("tally").textContent =
     `${wins} of ${tries} solved this session.`;
 
-  /* The old challenge was already verified,
-     so now generate a completely NEW one. */
-  await loadChallenge();
-});
+
+  await loadChallenge(
+    challengeType
+  );
+}
 
 
-/* Load first challenge when page opens */
-loadChallenge();
+/* =================================================================
+   Text form submit
+================================================================= */
+
+$("answer-form")
+  .addEventListener(
+    "submit",
+    async event => {
+
+      event.preventDefault();
+
+
+      if (
+        challengeType !== "text"
+      ) {
+        return;
+      }
+
+
+      await submitChallenge(
+        $("answer").value
+      );
+    }
+  );
+
+
+/* =================================================================
+   Message
+================================================================= */
+
+function setMsg(
+  text,
+  good
+) {
+
+  const el =
+    $("msg");
+
+
+  el.textContent =
+    text;
+
+
+  el.className =
+    "msg " +
+    (
+      good
+        ? "ok"
+        : "bad"
+    );
+}
+
+
+/* =================================================================
+   Mode buttons
+================================================================= */
+
+document
+  .querySelectorAll(
+    ".mode-button"
+  )
+  .forEach(
+    button => {
+
+      button.addEventListener(
+        "click",
+        async () => {
+
+          const type =
+            button.dataset.type;
+
+
+          if (
+            type ===
+            challengeType
+          ) {
+            return;
+          }
+
+
+          challengeId =
+            null;
+
+
+          setMsg(
+            "",
+            true
+          );
+
+
+          await loadChallenge(
+            type
+          );
+        }
+      );
+    }
+  );
+
+
+/* =================================================================
+   Text sliders
+================================================================= */
+
+[
+  "distort",
+  "noise",
+  "rotate"
+].forEach(
+  knob => {
+
+    $(knob).addEventListener(
+      "input",
+      () => {
+
+        $("o-" + knob)
+          .textContent =
+            $(knob).value;
+      }
+    );
+
+
+    $(knob).addEventListener(
+      "change",
+      async () => {
+
+        if (
+          challengeType !== "text"
+        ) {
+          return;
+        }
+
+
+        setMsg(
+          "",
+          true
+        );
+
+
+        await loadChallenge(
+          "text"
+        );
+      }
+    );
+  }
+);
+
+
+/* =================================================================
+   Image sliders
+================================================================= */
+
+$("image-difficulty")
+  .addEventListener(
+    "input",
+    () => {
+
+      $("o-image-difficulty")
+        .textContent =
+          $("image-difficulty").value;
+    }
+  );
+
+
+$("object-count")
+  .addEventListener(
+    "input",
+    () => {
+
+      $("o-object-count")
+        .textContent =
+          $("object-count").value;
+    }
+  );
+
+
+$("image-difficulty")
+  .addEventListener(
+    "change",
+    async () => {
+
+      if (
+        challengeType !== "image"
+      ) {
+        return;
+      }
+
+
+      await loadChallenge(
+        "image"
+      );
+    }
+  );
+
+
+$("object-count")
+  .addEventListener(
+    "change",
+    async () => {
+
+      if (
+        challengeType !== "image"
+      ) {
+        return;
+      }
+
+
+      await loadChallenge(
+        "image"
+      );
+    }
+  );
+
+
+/* =================================================================
+   Puzzle slider
+================================================================= */
+
+$("puzzle-difficulty")
+  .addEventListener(
+    "input",
+    () => {
+
+      $("o-puzzle-difficulty")
+        .textContent =
+          $("puzzle-difficulty").value;
+    }
+  );
+
+
+$("puzzle-difficulty")
+  .addEventListener(
+    "change",
+    async () => {
+
+      if (
+        challengeType !== "puzzle"
+      ) {
+        return;
+      }
+
+
+      await loadChallenge(
+        "puzzle"
+      );
+    }
+  );
+
+
+/* =================================================================
+   New challenge
+================================================================= */
+
+$("refresh")
+  .addEventListener(
+    "click",
+    async () => {
+
+      setMsg(
+        "",
+        true
+      );
+
+
+      await loadChallenge(
+        challengeType
+      );
+    }
+  );
+
+
+/* =================================================================
+   First challenge
+================================================================= */
+
+loadChallenge(
+  "text"
+);
+
 </script>
 
 </body>
+
 </html>
