@@ -19,8 +19,6 @@ BOT = {
 }
 
 
-
-
 def test_human_like_session_scores_zero():
     score, reasons = risk_score(HUMAN, 6.0, 0, 1, user_agent="Mozilla/5.0 Chrome/126")
     assert score == 0 and reasons == []
@@ -34,7 +32,9 @@ def test_naive_bot_is_high_risk():
 
 def test_touch_device_is_not_penalised_for_no_pointer():
     beh = dict(HUMAN, moves=0)
-    _, reasons = risk_score(beh, 6.0, 0, 1, user_agent="Mozilla/5.0 (iPhone) Mobile Safari")
+    _, reasons = risk_score(
+        beh, 6.0, 0, 1, user_agent="Mozilla/5.0 (iPhone) Mobile Safari"
+    )
     assert "no pointer movement" not in reasons
 
 
@@ -45,12 +45,16 @@ def test_instant_first_key_and_fast_typing_are_flagged():
 
 
 def test_missing_first_key_does_not_crash():
-    score, _ = risk_score(dict(HUMAN, first_key_ms=None), 6.0, 0, 1, user_agent="Mozilla/5.0")
+    score, _ = risk_score(
+        dict(HUMAN, first_key_ms=None), 6.0, 0, 1, user_agent="Mozilla/5.0"
+    )
     assert score == 0
 
 
 def test_score_is_capped_at_one():
-    score, _ = risk_score(dict(BOT, pasted=True), 0.1, 50, 50, issued_last_min=99, user_agent="")
+    score, _ = risk_score(
+        dict(BOT, pasted=True), 0.1, 50, 50, issued_last_min=99, user_agent=""
+    )
     assert score == 1.0
 
 

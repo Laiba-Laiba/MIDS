@@ -48,7 +48,14 @@ def init_app(app):
             conn.execute(
                 "INSERT INTO visitor_sessions (id, ip, user_agent, created_at, last_seen, label) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
-                (sid, client_ip_hash(), request.headers.get("User-Agent", "")[:200], now, now, label),
+                (
+                    sid,
+                    client_ip_hash(),
+                    request.headers.get("User-Agent", "")[:200],
+                    now,
+                    now,
+                    label,
+                ),
             )
             conn.commit()
         else:
@@ -58,6 +65,8 @@ def init_app(app):
                     (label, sid),
                 )
             if now - row["last_seen"] > 30:  # avoid a DB write on every request
-                conn.execute("UPDATE visitor_sessions SET last_seen = ? WHERE id = ?", (now, sid))
+                conn.execute(
+                    "UPDATE visitor_sessions SET last_seen = ? WHERE id = ?", (now, sid)
+                )
             conn.commit()
         g.sid = sid

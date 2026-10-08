@@ -2,7 +2,6 @@ import sqlite3
 
 from flask import current_app, g
 
-
 # Behaviour JSON ka format badalne par yeh number barhayein.
 #   1 = purana format (keys, moves, pasted, first_key_ms, key_gap_*)
 #   2 = full telemetry (pointer_*, key_hold_*, clipboard, page behaviour ...)

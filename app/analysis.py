@@ -25,14 +25,12 @@ WEIGHTS = {
     "pointer_anomaly": 0.08,
     "focus_anomaly": 0.05,
     "visibility_anomaly": 0.05,
-
     # Server-side behaviour
     "fast_solve": 0.25,
     "many_attempts": 0.25,
     "many_new_sessions": 0.20,
     "many_challenges": 0.15,
     "automation_ua": 0.15,
-
 }
 
 BANDS = (
@@ -59,12 +57,14 @@ MOBILE_TOKENS = (
     "ipad",
 )
 
+
 def band(score):
     """Convert a numeric risk score into low/medium/high."""
     for limit, name in BANDS:
         if score >= limit:
             return name
     return "low"
+
 
 def _number(value, default=0.0):
     """Safely convert telemetry values to a number."""
@@ -73,12 +73,14 @@ def _number(value, default=0.0):
     except (TypeError, ValueError):
         return default
 
+
 def _integer(value, default=0):
     """Safely convert telemetry values to an integer."""
     try:
         return int(value)
     except (TypeError, ValueError):
         return default
+
 
 def risk_score(
     beh,
@@ -131,73 +133,41 @@ def risk_score(
     if first_key_ms is not None:
         first_key_ms = _number(first_key_ms, None)
 
-    key_gap_mean = _number(
-        beh.get("key_gap_mean", 0)
-    )
+    key_gap_mean = _number(beh.get("key_gap_mean", 0))
 
-    key_gap_std = _number(
-        beh.get("key_gap_std", 0)
-    )
+    key_gap_std = _number(beh.get("key_gap_std", 0))
 
-    key_hold_std = _number(
-        beh.get("key_hold_std", 0)
-    )
+    key_hold_std = _number(beh.get("key_hold_std", 0))
 
-    typing_duration_ms = _number(
-        beh.get("typing_duration_ms", 0)
-    )
+    typing_duration_ms = _number(beh.get("typing_duration_ms", 0))
 
-    typing_speed_cpm = _number(
-        beh.get("typing_speed_cpm", 0)
-    )
+    typing_speed_cpm = _number(beh.get("typing_speed_cpm", 0))
 
-    pointer_distance = _number(
-        beh.get("pointer_distance", 0)
-    )
+    pointer_distance = _number(beh.get("pointer_distance", 0))
 
-    pointer_max_speed = _number(
-        beh.get("pointer_max_speed", 0)
-    )
+    pointer_max_speed = _number(beh.get("pointer_max_speed", 0))
 
-    pointer_direction_changes = _integer(
-        beh.get("pointer_direction_changes", 0)
-    )
+    pointer_direction_changes = _integer(beh.get("pointer_direction_changes", 0))
 
-    blur_count = _integer(
-        beh.get("blur_count", 0)
-    )
+    blur_count = _integer(beh.get("blur_count", 0))
 
-    refocus_count = _integer(
-        beh.get("refocus_count", 0)
-    )
+    refocus_count = _integer(beh.get("refocus_count", 0))
 
-    visibility_changes = _integer(
-        beh.get("visibility_changes", 0)
-    )
+    visibility_changes = _integer(beh.get("visibility_changes", 0))
 
-    hidden_time_ms = _number(
-        beh.get("hidden_time_ms", 0)
-    )
+    hidden_time_ms = _number(beh.get("hidden_time_ms", 0))
 
     # Only use interaction telemetry if the browser actually sent it.
     interaction_events_present = "interaction_events" in beh
-    interaction_events = _integer(
-        beh.get("interaction_events", 0)
-    )
+    interaction_events = _integer(beh.get("interaction_events", 0))
 
     final_input_length_present = "final_input_length" in beh
-    final_input_length = _integer(
-        beh.get("final_input_length", 0)
-    )
+    final_input_length = _integer(beh.get("final_input_length", 0))
 
     input_events_present = "input_events" in beh
-    input_events = _integer(
-        beh.get("input_events", 0)
-    )
+    input_events = _integer(beh.get("input_events", 0))
 
-    paste_count = _integer(
-        beh.get("paste_count", 0)
-    )
+    paste_count = _integer(beh.get("paste_count", 0))
 
     # ------------------------------------------------------------------
     # User-agent information
@@ -205,10 +175,7 @@ def risk_score(
 
     ua = (user_agent or "").lower()
 
-    touch_device = any(
-        token in ua
-        for token in MOBILE_TOKENS
-    )
+    touch_device = any(token in ua for token in MOBILE_TOKENS)
 
     # ------------------------------------------------------------------
     # 1. Pointer behaviour
@@ -265,57 +232,37 @@ def risk_score(
                 "very high keyboard correction rate",
             )
 
-    if (
-        keys >= 4
-        and key_gap_std > 0
-        and key_gap_std < 5
-    ):
+    if keys >= 4 and key_gap_std > 0 and key_gap_std < 5:
         flag(
             "regular_rhythm",
             "very regular inter-key timing",
         )
 
-    if (
-        keys >= 4
-        and key_hold_std > 0
-        and key_hold_std < 5
-    ):
+    if keys >= 4 and key_hold_std > 0 and key_hold_std < 5:
         flag(
             "regular_key_hold",
             "very regular key-hold timing",
         )
 
-    if (
-        first_key_ms is not None
-        and first_key_ms < 250
-    ):
+    if first_key_ms is not None and first_key_ms < 250:
         flag(
             "instant_first_key",
             "first keystroke occurred under 250 ms after challenge display",
         )
 
-    if (
-        keys >= 3
-        and 0 < key_gap_mean < 40
-    ):
+    if keys >= 3 and 0 < key_gap_mean < 40:
         flag(
             "superhuman_speed",
             "average inter-key gap is under 40 ms",
         )
 
-    if (
-        keys >= 4
-        and typing_speed_cpm > 900
-    ):
+    if keys >= 4 and typing_speed_cpm > 900:
         flag(
             "superhuman_speed",
             "typing speed is unusually high",
         )
 
-    if (
-        keys >= 3
-        and 0 < typing_duration_ms < 250
-    ):
+    if keys >= 3 and 0 < typing_duration_ms < 250:
         flag(
             "very_short_typing",
             "typing duration is unusually short",
@@ -325,11 +272,7 @@ def risk_score(
     # 4. Form / interaction behaviour
     # ------------------------------------------------------------------
 
-    if (
-        interaction_events_present
-        and interaction_events <= 2
-        and keys > 0
-    ):
+    if interaction_events_present and interaction_events <= 2 and keys > 0:
         flag(
             "low_interaction",
             "very few interaction events were observed",
@@ -356,10 +299,7 @@ def risk_score(
     # 5. Page / visibility behaviour
     # ------------------------------------------------------------------
 
-    if (
-        visibility_changes >= 4
-        or hidden_time_ms > 5000
-    ):
+    if visibility_changes >= 4 or hidden_time_ms > 5000:
         flag(
             "visibility_anomaly",
             "unusual tab visibility changes during the challenge",
@@ -384,17 +324,11 @@ def risk_score(
     # 7. Session-level behaviour
     # ------------------------------------------------------------------
 
-    attempts_last_min = _integer(
-        attempts_last_min
-    )
+    attempts_last_min = _integer(attempts_last_min)
 
-    issued_last_min = _integer(
-        issued_last_min
-    )
+    issued_last_min = _integer(issued_last_min)
 
-    ip_new_sessions = _integer(
-        ip_new_sessions
-    )
+    ip_new_sessions = _integer(ip_new_sessions)
 
     if attempts_last_min >= 10:
         flag(
@@ -418,13 +352,7 @@ def risk_score(
     # 8. User-Agent
     # ------------------------------------------------------------------
 
-    if (
-        not ua
-        or any(
-            token in ua
-            for token in AUTOMATION_TOKENS
-        )
-    ):
+    if not ua or any(token in ua for token in AUTOMATION_TOKENS):
         flag(
             "automation_ua",
             "User-Agent resembles an automation client or is empty",
