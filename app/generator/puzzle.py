@@ -5,11 +5,10 @@ Creates a 2x2 image puzzle with shuffled tiles.
 """
 
 import random
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from io import BytesIO
 
 from PIL import Image, ImageDraw
-
 
 SIZE = (440, 260)
 
@@ -46,7 +45,6 @@ def _make_source_image(rng):
 
     # Large visual areas so tile ordering is recognizable.
     for _ in range(12):
-
         x1 = rng.randint(0, SIZE[0])
         y1 = rng.randint(0, SIZE[1])
 
@@ -64,7 +62,6 @@ def _make_source_image(rng):
         )
 
     for _ in range(8):
-
         x = rng.randint(20, SIZE[0] - 20)
         y = rng.randint(20, SIZE[1] - 20)
 
@@ -96,9 +93,7 @@ def _split_image(img):
     tiles = []
 
     for row in range(GRID_SIZE):
-
         for col in range(GRID_SIZE):
-
             box = (
                 col * tile_w,
                 row * tile_h,
@@ -124,7 +119,6 @@ def _make_preview(tiles):
     )
 
     for index, tile in enumerate(tiles):
-
         row = index // GRID_SIZE
         col = index % GRID_SIZE
 
@@ -148,9 +142,7 @@ def generate(params=None, seed=None):
 
     tiles = _split_image(source)
 
-    correct_order = list(
-        range(len(tiles))
-    )
+    correct_order = list(range(len(tiles)))
 
     shuffled_order = correct_order.copy()
 
@@ -158,14 +150,9 @@ def generate(params=None, seed=None):
     while shuffled_order == correct_order:
         rng.shuffle(shuffled_order)
 
-    shuffled_tiles = [
-        tiles[i]
-        for i in shuffled_order
-    ]
+    shuffled_tiles = [tiles[i] for i in shuffled_order]
 
-    preview = _make_preview(
-        shuffled_tiles
-    )
+    preview = _make_preview(shuffled_tiles)
 
     answer = {
         "correct_order": correct_order,

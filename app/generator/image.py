@@ -6,11 +6,10 @@ The user must click the requested object.
 """
 
 import random
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from io import BytesIO
 
-from PIL import Image, ImageDraw, ImageFont
-
+from PIL import Image, ImageDraw
 
 SIZE = (440, 260)
 
@@ -125,19 +124,14 @@ def generate(params=None, seed=None):
 
     object_names = list(OBJECTS.keys())
 
-    selected_target = rng.choice(
-        object_names
-    )
+    selected_target = rng.choice(object_names)
 
     objects = []
 
     padding = 25
 
     for index in range(params.object_count):
-
-        object_type = rng.choice(
-            object_names
-        )
+        object_type = rng.choice(object_names)
 
         width = rng.randint(35, 60)
         height = width
@@ -172,7 +166,6 @@ def generate(params=None, seed=None):
     target["type"] = selected_target
 
     for obj in objects:
-
         _draw_object(
             draw,
             obj["type"],
@@ -182,11 +175,7 @@ def generate(params=None, seed=None):
 
     # Slight difficulty-dependent visual clutter.
     if params.difficulty > 0:
-
-        for _ in range(
-            params.difficulty * 2
-        ):
-
+        for _ in range(params.difficulty * 2):
             x1 = rng.randint(
                 0,
                 SIZE[0],

@@ -2,7 +2,6 @@ import sqlite3
 
 from flask import current_app, g
 
-
 # Behaviour JSON ka format badalne par yeh number barhayein.
 #   1 = purana format (keys, moves, pasted, first_key_ms, key_gap_*)
 #   2 = full telemetry (pointer_*, key_hold_*, clipboard, page behaviour ...)
@@ -65,6 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_iss_type    ON issued_challenges (challenge_type,
 # Connection
 # ---------------------------------------------------------------------------
 
+
 def get_db():
     if "db" not in g:
         conn = sqlite3.connect(
@@ -92,11 +92,9 @@ def close_db(_exc=None):
 # Migration helpers
 # ---------------------------------------------------------------------------
 
+
 def _columns(conn, table):
-    return {
-        row["name"]
-        for row in conn.execute(f"PRAGMA table_info({table})")
-    }
+    return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
 
 
 def _ensure_column(conn, table, column, decl):
@@ -118,6 +116,7 @@ def _ensure_column(conn, table, column, decl):
 # Init
 # ---------------------------------------------------------------------------
 
+
 def init_app(app):
     app.teardown_appcontext(close_db)
 
@@ -134,28 +133,38 @@ def init_app(app):
         _ensure_column(conn, "visitor_sessions", "label", "TEXT")
 
         _ensure_column(
-            conn, "attempts", "challenge_type",
+            conn,
+            "attempts",
+            "challenge_type",
             "TEXT NOT NULL DEFAULT 'text'",
         )
         _ensure_column(
-            conn, "attempts", "challenge_id",
+            conn,
+            "attempts",
+            "challenge_id",
             "INTEGER REFERENCES issued_challenges(id)",
         )
         _ensure_column(conn, "attempts", "fail_reason", "TEXT")
 
         added_version = _ensure_column(
-            conn, "attempts", "schema_version",
+            conn,
+            "attempts",
+            "schema_version",
             "INTEGER NOT NULL DEFAULT 2",
         )
 
         _ensure_column(
-            conn, "issued_challenges", "challenge_type",
+            conn,
+            "issued_challenges",
+            "challenge_type",
             "TEXT NOT NULL DEFAULT 'text'",
         )
         _ensure_column(conn, "issued_challenges", "params", "TEXT")
         _ensure_column(conn, "issued_challenges", "expires_at", "REAL")
         _ensure_column(
-            conn, "issued_challenges", "used",
+            conn,
+            "issued_challenges",
+            "used",
             "INTEGER NOT NULL DEFAULT 0",
         )
 

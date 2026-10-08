@@ -27,7 +27,9 @@ def test_new_challenge_rejects_non_numbers(client):
 def test_correct_answer_is_accepted(client):
     new = _new(client).get_json()
     answer = CHALLENGES[new["id"]]["answer"]
-    r = client.post("/api/captcha/verify", json={"id": new["id"], "answer": answer.lower()})
+    r = client.post(
+        "/api/captcha/verify", json={"id": new["id"], "answer": answer.lower()}
+    )
     assert r.get_json()["correct"] is True
 
 

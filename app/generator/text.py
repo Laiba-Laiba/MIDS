@@ -5,6 +5,7 @@ blur together. Here each effect has its own parameter, matching the proposal's
 parameter vector [p_distort, p_noise, p_rotate]. That is what lets the
 RL policy tune them separately later.
 """
+
 import math
 import random
 from dataclasses import asdict, dataclass
@@ -24,8 +25,8 @@ def _clamp(v):
 @dataclass(frozen=True)
 class Params:
     distort: int = 0  # wave warp + vertical jitter of characters
-    noise: int = 0    # clutter lines, speckle, blur
-    rotate: int = 0   # per-character rotation
+    noise: int = 0  # clutter lines, speckle, blur
+    rotate: int = 0  # per-character rotation
 
     def __post_init__(self):
         for name in ("distort", "noise", "rotate"):
@@ -73,7 +74,12 @@ def _add_noise(img, level, rng):
     w, h = img.size
     draw = ImageDraw.Draw(img)
     for _ in range(level):
-        line = (rng.randint(0, w), rng.randint(0, h), rng.randint(0, w), rng.randint(0, h))
+        line = (
+            rng.randint(0, w),
+            rng.randint(0, h),
+            rng.randint(0, w),
+            rng.randint(0, h),
+        )
         draw.line(line, fill=(rng.randint(0, 150),) * 3, width=1)
     arr = np.array(img)
     gen = np.random.default_rng(rng.randint(0, 2**32 - 1))
