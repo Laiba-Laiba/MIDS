@@ -1,948 +1,662 @@
 <!doctype html>
-
+{% set pm = page_mode|default('generator') %}
 <html lang="en">
-
 <head>
-
 <meta charset="utf-8">
-
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
-
-<title>
-  Platform 9¾ · CAPTCHA Lab
-</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform 9¾ — CAPTCHA Lab</title>
 <style>
-
-  :root {
-    --bg:#f2f4f8;
-    --panel:#fff;
-    --ink:#1c2740;
-    --muted:#5d6985;
-    --line:#d5dbe7;
-    --accent:#c2362b;
-    --ok:#1d7a4d;
-  }
-
-  * {
-    box-sizing:border-box;
-  }
-
-  body {
-    margin:0;
-    background:var(--bg);
-    color:var(--ink);
-    font:16px/1.5 system-ui,
-      -apple-system,
-      "Segoe UI",
-      sans-serif;
-  }
-
-  main {
-    max-width:920px;
-    margin:0 auto;
-    padding:32px 20px 48px;
-  }
-
-  h1 {
-    font-size:1.75rem;
-    margin:0 0 4px;
-    letter-spacing:-.01em;
-  }
-
-  .lede {
-    color:var(--muted);
-    margin:0 0 24px;
-    max-width:70ch;
-  }
-
-  .grid {
-    display:grid;
-    grid-template-columns:1.2fr 1fr;
-    gap:20px;
-  }
-
-  @media (max-width:720px) {
-
-    .grid {
-      grid-template-columns:1fr;
-    }
-
-  }
-
-  section {
-    background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:10px;
-    padding:20px;
-  }
-
-  h2 {
-    font-size:1rem;
-    margin:0 0 14px;
-  }
-
-  .mode-selector {
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-    margin-bottom:18px;
-  }
-
-  .mode-button {
-    background:transparent;
-    color:var(--ink);
-    border:1px solid var(--line);
-  }
-
-  .mode-button.active {
-    background:var(--ink);
-    color:#fff;
-    border-color:var(--ink);
-  }
-
-  .instruction {
-    color:var(--muted);
-    margin:0 0 12px;
-    font-weight:600;
-  }
-
-  .shot {
-    border:1px solid var(--line);
-    border-radius:6px;
-    background:#fff;
-    display:block;
-    width:100%;
-    max-width:440px;
-    min-height:180px;
-    object-fit:contain;
-  }
-
-  .shot.image-selectable {
-    cursor:crosshair;
-  }
-
-  .row {
-    display:flex;
-    gap:10px;
-    margin-top:14px;
-    flex-wrap:wrap;
-  }
-
-  input[type=text] {
-    flex:1;
-    min-width:140px;
-    font:600 1.25rem ui-monospace,
-      Menlo,
-      Consolas,
-      monospace;
-
-    letter-spacing:.2em;
-    text-transform:uppercase;
-    padding:10px 12px;
-    border:1px solid var(--line);
-    border-radius:6px;
-  }
-
-  button {
-    font:inherit;
-    font-weight:600;
-    padding:10px 16px;
-    border-radius:6px;
-    border:1px solid var(--ink);
-    background:var(--ink);
-    color:#fff;
-    cursor:pointer;
-  }
-
-  button.ghost {
-    background:transparent;
-    color:var(--ink);
-  }
-
-  button:disabled {
-    opacity:.5;
-    cursor:not-allowed;
-  }
-
-  :is(button,input):focus-visible {
-    outline:3px solid var(--accent);
-    outline-offset:2px;
-  }
-
-  .msg {
-    min-height:1.5em;
-    margin-top:12px;
-    font-weight:600;
-  }
-
-  .msg.ok {
-    color:var(--ok);
-  }
-
-  .msg.bad {
-    color:var(--accent);
-  }
-
-  .tally {
-    color:var(--muted);
-    font-size:.9rem;
-    margin-top:8px;
-  }
-
-  .knob {
-    margin-bottom:18px;
-  }
-
-  .knob label {
-    display:flex;
-    justify-content:space-between;
-    font-weight:600;
-  }
-
-  .knob small {
-    display:block;
-    color:var(--muted);
-  }
-
-  input[type=range] {
-    width:100%;
-    accent-color:var(--accent);
-  }
-
-  .hidden {
-    display:none !important;
-  }
-
-  /* ---------------------------------------------------------------
-     Puzzle
-  --------------------------------------------------------------- */
-
-  #puzzle-grid {
-    display:grid;
-    grid-template-columns:repeat(2, 1fr);
-    gap:5px;
-    width:100%;
-    max-width:440px;
-    margin-top:12px;
-  }
-
-  .puzzle-tile {
-    position:relative;
-    aspect-ratio:1 / 1;
-    border:2px solid var(--line);
-    border-radius:5px;
-    background-repeat:no-repeat;
-    cursor:grab;
-    user-select:none;
-    touch-action:none;
-  }
-
-  .puzzle-tile:active {
-    cursor:grabbing;
-  }
-
-  .puzzle-tile.dragging {
-    opacity:.45;
-  }
-
-  .puzzle-tile-number {
-    position:absolute;
-    top:5px;
-    left:5px;
-    min-width:24px;
-    height:24px;
-    padding:2px 6px;
-    border-radius:12px;
-    background:rgba(0,0,0,.65);
-    color:#fff;
-    font-size:.8rem;
-    text-align:center;
-    line-height:20px;
-  }
-
-  .task-box {
-    margin-top:12px;
-  }
-
-  /* Human vs Attacker layout */
-  .comparison-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
-  }
-
-  .human-column {
-    min-width: 0;
-  }
-
-  .human-column .grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .attacker-panel {
-    min-width: 0;
-    position: sticky;
-    top: 16px;
-  }
-
-  .attacker-image {
-    width: 100%;
-    max-width: 440px;
-    min-height: 180px;
-    object-fit: contain;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: #fff;
-  }
-
-  .attacker-controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 12px 0;
-  }
-
-  .attacker-controls select {
-    flex: 1;
-    min-width: 120px;
-    font: inherit;
-    padding: 10px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: #fff;
-    color: var(--ink);
-  }
-
-  .activity-log {
-    list-style: none;
-    padding: 0;
-    margin: 12px 0 0;
-    max-height: 250px;
-    overflow-y: auto;
-  }
-
-  .activity-log li {
-    padding: 8px 10px;
-    margin-bottom: 6px;
-    border-left: 3px solid var(--line);
-    background: var(--bg);
-    overflow-wrap: anywhere;
-    font-size: .9rem;
-  }
-
-  .activity-log li.success {
-    border-left-color: var(--ok);
-  }
-
-  .activity-log li.failure {
-    border-left-color: var(--accent);
-  }
-
-  .status-line {
-    font-weight: 600;
-    margin: 10px 0;
-  }
-
-  .report-panel {
-    margin-top: 20px;
-    overflow-x: auto;
-  }
-
-  .report-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: .9rem;
-  }
-
-  .report-table th,
-  .report-table td {
-    padding: 10px 8px;
-    text-align: left;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .report-table th {
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  @media (max-width: 900px) {
-    .comparison-grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .attacker-panel {
-      position: static;
-    }
-  }
-
-/* Page navigation */
-.page-nav {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 16px 0 24px;
+:root{
+  --bg:#e3e8f1; --panel:#f7f9fc; --panel2:#eef2f8;
+  --ink:#1f2a44; --muted:#58657f; --line:#c5cee0;
+  --side:#2f4468; --side-ink:#dbe4f5; --side-hover:#3d5580;
+  --accent:#2a8c9a; --accent-ink:#fff;
+  --accent-2:#7c5cff;
+  --danger:#c4503f; --ok:#2f8f62; --warn:#cf9528;
+  --glow:rgba(42,140,154,.45);
+  --glow-2:rgba(124,92,255,.45);
 }
-
-.page-nav a {
-  display: inline-block;
-  padding: 9px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
-  color: var(--ink);
-  text-decoration: none;
-  font-weight: 600;
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:
+  radial-gradient(1200px 600px at 10% -10%, rgba(124,92,255,.14), transparent 60%),
+  radial-gradient(900px 500px at 100% 0%, rgba(42,140,154,.16), transparent 55%),
+  var(--bg);
+  color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif;
+  min-height:100vh;
 }
+h1{font-size:1.5rem;margin:0 0 4px;letter-spacing:-.01em;
+   background:linear-gradient(90deg,var(--ink),var(--accent),var(--accent-2));
+   -webkit-background-clip:text;background-clip:text;color:transparent;}
+h2{font-size:1.02rem;margin:0 0 14px}
+h3{font-size:.95rem;margin:16px 0 0}
+.lede{color:var(--muted);margin:0 0 20px;max-width:80ch}
 
-.page-nav a.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+/* ---------- shell ---------- */
+.topbar{position:sticky;top:0;z-index:20;height:58px;display:flex;align-items:center;gap:14px;padding:0 20px;
+  background:linear-gradient(180deg,rgba(247,249,252,.95),rgba(247,249,252,.82));
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 6px 22px -14px rgba(31,42,68,.35), 0 0 0 1px rgba(255,255,255,.4) inset;
 }
-
-/* Generator page: hide attacker panel */
-body.generator .comparison-grid {
-  grid-template-columns: minmax(0, 1fr);
+.burger{display:none;padding:6px 10px;background:transparent;color:var(--ink);border:1px solid var(--line);
+  border-radius:8px;transition:.2s}
+.burger:hover{background:var(--panel2);box-shadow:0 0 0 3px var(--glow)}
+.brand{font-weight:800;font-size:1.15rem;display:flex;align-items:center;gap:10px;
+  letter-spacing:.01em;
+  background:linear-gradient(90deg,var(--side),var(--accent),var(--accent-2));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-
-body.generator .attacker-panel {
-  display: none;
+.brand i{width:28px;height:28px;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:inline-block;position:relative;
+  box-shadow:0 0 0 3px rgba(42,140,154,.18), 0 0 18px var(--glow);
+  animation:brandPulse 3.2s ease-in-out infinite;
 }
-
-/* Attacker page: hide only the human solve section.
-   Keep CAPTCHA settings and controls visible. */
-body.attacker .human-column .grid > section:first-child {
-  display: none;
+@keyframes brandPulse{
+  0%,100%{box-shadow:0 0 0 3px rgba(42,140,154,.18), 0 0 14px var(--glow)}
+  50%{box-shadow:0 0 0 5px rgba(124,92,255,.20), 0 0 26px var(--glow-2)}
 }
-
-@media (max-width: 760px) {
-  body.attacker .comparison-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  body.attacker .attacker-panel {
-    position: static;
-  }
+.brand i::after{content:"";position:absolute;inset:7px;border:2px solid #fff;border-radius:3px}
+.topbar .spacer{flex:1}
+.chip{padding:4px 12px;border:1px solid var(--line);border-radius:999px;
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  color:var(--muted);font-size:.85rem;
+  transition:.25s;
+  box-shadow:0 1px 0 #fff inset;
 }
+.chip:hover{color:var(--ink);border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.chip b{color:var(--ink)}
+.shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:calc(100vh - 58px)}
+.sidebar{background:linear-gradient(180deg,var(--side),#263858);
+  padding:20px 12px;position:sticky;top:58px;height:calc(100vh - 58px);overflow-y:auto;
+  box-shadow:inset -1px 0 0 rgba(255,255,255,.06), 6px 0 22px -18px rgba(0,0,0,.6);
+}
+.sidebar p{color:#97a8c9;font-size:.8rem;margin:0 10px 8px;text-transform:uppercase;letter-spacing:.14em}
+.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:4px;border-radius:8px;
+  color:var(--side-ink);text-decoration:none;font-weight:600;
+  transition:background .2s, transform .15s, box-shadow .2s, color .2s;
+  position:relative;
+}
+.sidebar a:hover{background:var(--side-hover);transform:translateX(3px);
+  box-shadow:0 6px 18px -12px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.06) inset}
+.sidebar a:hover svg{filter:drop-shadow(0 0 6px rgba(255,255,255,.55))}
+.sidebar a.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--accent-ink);
+  box-shadow:0 8px 22px -12px var(--glow-2), 0 0 0 1px rgba(255,255,255,.15) inset}
+.sidebar a.active::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:3px;
+  background:#fff;box-shadow:0 0 12px #fff}
+.sidebar svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:filter .2s}
+.content{padding:24px 28px 48px;min-width:0;width:100%}
 
+/* ---------- page switching ---------- */
+body:not(.generator) .only-gen,
+body:not(.attacker) .only-att,
+body:not(.report) .only-rep,
+body:not(.evaluation) .only-eval,
+body:not(.behaviour) .only-beh,
+body:not(.sessions) .only-ses{display:none!important}
+body.report .workspace, body.evaluation .workspace{display:none!important}
+.hidden{display:none!important}
+
+/* ---------- cards / layout ---------- */
+.card{background:linear-gradient(180deg,var(--panel),#f1f5fb);
+  border:1px solid var(--line);border-radius:14px;padding:20px;
+  box-shadow:0 10px 30px -22px rgba(31,42,68,.55), 0 1px 0 #fff inset;
+  transition:box-shadow .25s, transform .25s, border-color .25s;
+}
+.card:hover{border-color:rgba(42,140,154,.45);
+  box-shadow:0 18px 40px -22px rgba(31,42,68,.55), 0 0 0 1px var(--glow), 0 1px 0 #fff inset}
+.workspace{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:20px;align-items:start}
+.workspace > .main-card{grid-column:1;grid-row:1}
+.workspace > .settings-card{grid-column:2;grid-row:1}
+
+.mode-selector{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.mode-button{background:linear-gradient(180deg,var(--panel),var(--panel2));
+  color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 18px;
+  transition:.22s;position:relative;overflow:hidden;
+}
+.mode-button:hover{transform:translateY(-2px);
+  border-color:var(--accent);
+  box-shadow:0 10px 22px -14px var(--glow), 0 0 0 3px var(--glow)}
+.mode-button.active{background:linear-gradient(135deg,var(--side),var(--accent));color:#fff;border-color:transparent;
+  box-shadow:0 12px 26px -14px var(--glow-2), 0 0 0 3px rgba(42,140,154,.22)}
+
+.instruction{color:var(--muted);margin:0 0 12px;font-weight:600}
+.shot,.attacker-image{display:block;width:100%;max-width:560px;min-height:180px;object-fit:contain;
+  border:1px solid var(--line);border-radius:10px;background:#fff;
+  box-shadow:0 12px 28px -20px rgba(31,42,68,.6);
+  transition:box-shadow .25s, border-color .25s}
+.shot:hover,.attacker-image:hover{border-color:var(--accent);box-shadow:0 18px 34px -20px var(--glow)}
+.shot.image-selectable{cursor:crosshair}
+.row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+input[type=text]{flex:1;min-width:140px;font:600 1.25rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:.2em;
+  text-transform:uppercase;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);
+  transition:box-shadow .2s, border-color .2s, transform .15s}
+input[type=text]:hover{border-color:rgba(42,140,154,.5)}
+input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--glow), 0 4px 14px -8px var(--glow)}
+button{font:inherit;font-weight:700;padding:10px 18px;border-radius:9px;border:1px solid transparent;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;cursor:pointer;
+  position:relative;overflow:hidden;
+  transition:transform .15s, box-shadow .25s, filter .2s;
+  box-shadow:0 10px 22px -14px var(--glow-2), 0 1px 0 rgba(255,255,255,.25) inset;
+}
+button::before{content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);
+  transform:skewX(-20deg);transition:left .5s ease}
+button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08);
+  box-shadow:0 18px 30px -14px var(--glow-2), 0 0 0 3px rgba(124,92,255,.22), 0 1px 0 rgba(255,255,255,.3) inset}
+button:hover:not(:disabled)::before{left:130%}
+button:active:not(:disabled){transform:translateY(0) scale(.98)}
+button.ghost{background:linear-gradient(180deg,var(--panel),var(--panel2));color:var(--ink);border-color:var(--line)}
+button.ghost:hover:not(:disabled){border-color:var(--accent);color:var(--ink);
+  box-shadow:0 14px 26px -16px var(--glow), 0 0 0 3px var(--glow)}
+button:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.3)}
+:is(button,input,select,a):focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.msg{min-height:1.5em;margin-top:12px;font-weight:700}
+.msg.ok{color:var(--ok);text-shadow:0 0 12px rgba(47,143,98,.25)}
+.msg.bad{color:var(--danger);text-shadow:0 0 12px rgba(196,80,63,.2)}
+.tally{color:var(--muted);font-size:.9rem;margin-top:8px}
+.task-box{margin:12px 0 0}
+
+.knob{margin-bottom:18px}
+.knob label{display:flex;justify-content:space-between;font-weight:700}
+.knob small{display:block;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+input[type=range]:hover{filter:drop-shadow(0 0 6px var(--glow))}
+
+#puzzle-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;width:100%;max-width:560px;margin-top:12px}
+.puzzle-tile{position:relative;aspect-ratio:1/1;border:2px solid var(--line);border-radius:8px;
+  background-repeat:no-repeat;cursor:grab;user-select:none;touch-action:none;
+  transition:border-color .2s, transform .15s, box-shadow .25s}
+.puzzle-tile:hover{border-color:var(--accent);transform:scale(1.015);
+  box-shadow:0 10px 22px -14px var(--glow), 0 0 0 3px var(--glow)}
+.puzzle-tile:active{cursor:grabbing}
+.puzzle-tile.dragging{opacity:.45;border-color:var(--accent-2);box-shadow:0 0 0 3px var(--glow-2)}
+.puzzle-tile-number{position:absolute;top:5px;left:5px;min-width:24px;height:24px;padding:2px 6px;border-radius:12px;
+  background:linear-gradient(135deg,rgba(47,68,104,.9),rgba(42,140,154,.9));color:#fff;font-size:.8rem;text-align:center;line-height:20px;
+  box-shadow:0 4px 10px -6px rgba(0,0,0,.6)}
+
+/* attacker */
+.attacker-controls{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.attacker-controls select{flex:1;min-width:140px;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;color:var(--ink);transition:box-shadow .2s, border-color .2s}
+.attacker-controls select:hover{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.attacker-controls select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--glow)}
+.status-line{font-weight:700;margin:10px 0}
+.activity-log{list-style:none;padding:0;margin:12px 0 0;max-height:260px;overflow-y:auto}
+.activity-log li{padding:8px 10px;margin-bottom:6px;border-left:3px solid var(--line);background:var(--panel2);
+  overflow-wrap:anywhere;font-size:.9rem;border-radius:0 8px 8px 0;
+  transition:background .2s, border-color .2s, transform .15s}
+.activity-log li:hover{transform:translateX(3px);background:#e6ecf5;border-left-color:var(--accent)}
+.activity-log li.success{border-left-color:var(--ok);background:linear-gradient(90deg,rgba(47,143,98,.1),var(--panel2))}
+.activity-log li.failure{border-left-color:var(--danger);background:linear-gradient(90deg,rgba(196,80,63,.1),var(--panel2))}
+
+/* report + evaluation */
+.table-wrap{overflow-x:auto;border-radius:10px}
+.report-table{width:100%;border-collapse:collapse;font-size:.92rem}
+.report-table th,.report-table td{padding:10px 10px;text-align:left;border-bottom:1px solid var(--line)}
+.report-table th{color:var(--muted);white-space:nowrap;
+  background:linear-gradient(180deg,var(--panel2),#e7edf6);
+  position:sticky;top:0}
+.report-table tbody tr{transition:background .2s, box-shadow .2s}
+.report-table tbody tr:hover{background:rgba(42,140,154,.07);
+  box-shadow:inset 3px 0 0 var(--accent)}
+.report-table td:first-child{font-weight:700;text-transform:capitalize}
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.toolbar .status-line{margin:0}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:16px 0 20px}
+.stat{background:linear-gradient(180deg,var(--panel),#eef3fa);border:1px solid var(--line);border-radius:14px;padding:16px;
+  border-top:4px solid var(--accent);
+  box-shadow:0 10px 26px -20px rgba(31,42,68,.6);
+  transition:transform .2s, box-shadow .25s, border-color .25s}
+.stat:hover{transform:translateY(-3px);
+  box-shadow:0 20px 34px -20px rgba(31,42,68,.55), 0 0 0 3px var(--glow)}
+.stat.bad{border-top-color:var(--danger)} .stat.warn{border-top-color:var(--warn)}
+.stat.bad:hover{box-shadow:0 20px 34px -20px rgba(196,80,63,.5), 0 0 0 3px rgba(196,80,63,.28)}
+.stat.warn:hover{box-shadow:0 20px 34px -20px rgba(207,149,40,.5), 0 0 0 3px rgba(207,149,40,.28)}
+.stat small{color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem}
+.stat strong{display:block;font-size:1.7rem;line-height:1.2;margin:4px 0}
+.stat span{color:var(--muted);font-size:.85rem}
+.bar{height:8px;background:var(--line);border-radius:4px;margin-top:10px;overflow:hidden}
+.bar div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  transition:width .6s ease;box-shadow:0 0 10px var(--glow)}
+.stat.bad .bar div{background:linear-gradient(90deg,var(--danger),#e07a63);box-shadow:0 0 10px rgba(196,80,63,.5)}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-weight:800;font-size:.8rem;background:var(--line);color:var(--ink)}
+.badge.ok{background:#cdeadb;color:#1d5e3f;box-shadow:0 0 0 1px rgba(47,143,98,.3)}
+.badge.warn{background:#f6e3b8;color:#7a5410;box-shadow:0 0 0 1px rgba(207,149,40,.3)}
+.badge.bad{background:#f3cdc6;color:#8a2b1e;box-shadow:0 0 0 1px rgba(196,80,63,.3)}
+.note{color:var(--muted);font-size:.88rem;margin-top:14px}
+
+@media (max-width:960px){
+  .workspace{grid-template-columns:minmax(0,1fr)}
+  .workspace > .main-card,.workspace > .settings-card{grid-column:1;grid-row:auto}
+}
+@media (max-width:860px){
+  .burger{display:inline-block}
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .sidebar{position:fixed;left:0;top:58px;width:240px;z-index:15;transform:translateX(-100%);transition:transform .2s}
+  body.nav-open .sidebar{transform:none}
+  .content{padding:18px 14px 40px}
+  .chip{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .sidebar{transition:none}
+  .brand i{animation:none}
+  button::before{display:none}
+  *{transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
+/* ---------- report view toggle ---------- */
+.report-view-toggle{
+  display:inline-flex;
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:3px;
+  gap:2px;
+  box-shadow:0 1px 0 #fff inset;
+}
+.report-view-toggle .view-btn{
+  background:transparent;
+  color:var(--muted);
+  border:none;
+  border-radius:999px;
+  padding:6px 16px;
+  font-weight:700;
+  font-size:.85rem;
+  cursor:pointer;
+  transition:background .2s, color .2s, box-shadow .2s;
+  box-shadow:none;
+}
+.report-view-toggle .view-btn:hover:not(.active){
+  color:var(--ink);
+  background:rgba(42,140,154,.08);
+}
+.report-view-toggle .view-btn.active{
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#fff;
+  box-shadow:0 6px 14px -8px var(--glow-2);
+}
+.report-view-toggle .view-btn::before{display:none}
+
+/* Risk pill for per-attempt table */
+.risk-pill{
+  display:inline-block;
+  padding:2px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:.8rem;
+  letter-spacing:.02em;
+}
+.risk-pill.low    { background:#cdeadb; color:#1d5e3f; }
+.risk-pill.medium { background:#f6e3b8; color:#7a5410; }
+.risk-pill.high   { background:#f3cdc6; color:#8a2b1e; }
+
+.actor-pill{
+  display:inline-block;
+  padding:2px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:.8rem;
+}
+.actor-pill.human    { background:#dde7ff; color:#2c3f7a; }
+.actor-pill.attacker { background:#f3cdc6; color:#8a2b1e; }
+
+.result-pill{
+  display:inline-block;
+  padding:2px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:.8rem;
+}
+.result-pill.ok  { background:#cdeadb; color:#1d5e3f; }
+.result-pill.bad { background:#f3cdc6; color:#8a2b1e; }
 </style>
-
 </head>
 
+<body class="{{ pm }}">
 
-<body class="{{ page_mode|default('generator') }}">
+<header class="topbar">
+  <button type="button" class="burger" id="burger" aria-label="Toggle menu">Menu</button>
+  <div class="brand"><i></i>Platform 9¾</div>
+  <div class="spacer"></div>
+  <div class="chip">Experiment: <b>side_by_side_v1</b></div>
+</header>
 
-<main>
+<div class="shell">
 
-  <h1>
-    CAPTCHA Lab
-  </h1>
-  
-<nav class="page-nav" aria-label="Main navigation">
-  <a
-    href="/"
-    class="{{ 'active' if page_mode == 'generator' else '' }}"
-  >
+<aside class="sidebar" aria-label="Main navigation">
+  <p>Pages</p>
+  <a href="/" class="{{ 'active' if pm == 'generator' else '' }}">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 15l3-3 3 3 2-2 3 3"/></svg>
     CAPTCHA Generator
   </a>
-
-  <a
-    href="/attacker"
-    class="{{ 'active' if page_mode == 'attacker' else '' }}"
-  >
+  <a href="/attacker" class="{{ 'active' if pm == 'attacker' else '' }}">
+    <svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01M9 16h6"/></svg>
     AI Attacker
   </a>
-</nav>
+  <a href="/report" class="{{ 'active' if pm == 'report' else '' }}">
+    <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>
+    Report
+  </a>
+  <a href="/evaluation" class="{{ 'active' if pm == 'evaluation' else '' }}">
+    <svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+    Evaluation
+  </a>
+   <a href="/behaviour" class="{{ 'active' if pm == 'behaviour' else '' }}">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3"/></svg>
+    Behaviour Monitor
+  </a>
+  <a href="/sessions" class="{{ 'active' if pm == 'sessions' else '' }}">
+    <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18" cy="18" r="3"/></svg>
+    Session Monitor
+  </a>
+</aside>
 
+<main class="content">
 
-  <p class="lede">
-    Select a challenge type and solve it.
-    Behavioural telemetry is collected per challenge
-    and the same session/risk monitoring layer is used
-    across all three modes.
-  </p>
-
-
-  <!-- =============================================================
-       MODE SELECTOR
-  ============================================================= -->
-
-  <div class="mode-selector">
-
-    <button
-      type="button"
-      class="mode-button active"
-      data-type="text"
-    >
-      Text CAPTCHA
-    </button>
-
-    <button
-      type="button"
-      class="mode-button"
-      data-type="image"
-    >
-      Image CAPTCHA
-    </button>
-
-    <button
-      type="button"
-      class="mode-button"
-      data-type="puzzle"
-    >
-      Puzzle CAPTCHA
-    </button>
-
+  <!-- ===== page headings ===== -->
+  <div class="only-gen">
+    <h1>CAPTCHA Generator</h1>
+    <p class="lede">Select a challenge type and solve it. Behavioural telemetry is collected per challenge and the same session/risk monitoring layer is used across all three modes.</p>
+  </div>
+  <div class="only-att">
+    <h1>AI Attacker</h1>
+    <p class="lede">The local solver attempts a separately issued challenge. Use the difficulty panel to change how hard the challenge is.</p>
+  </div>
+  <div class="only-rep">
+    <h1>Human vs Attacker Report</h1>
+    <p class="lede">Per-attempt results for the experiment, with an optional summary view.</p>
+  </div>
+  <div class="only-eval">
+    <h1>Evaluation</h1>
+    <p class="lede">How well each CAPTCHA type holds up against the attacker, compared with how easily humans solve it. Calculated from the report data.</p>
   </div>
 
+  <!-- ===== mode selector (generator only) ===== -->
+  <div class="mode-selector only-gen">
+    <button type="button" class="mode-button active" data-type="text">Text CAPTCHA</button>
+    <button type="button" class="mode-button" data-type="image">Image CAPTCHA</button>
+    <button type="button" class="mode-button" data-type="puzzle">Puzzle CAPTCHA</button>
+  </div>
 
-  <div class="comparison-grid">
-  <div class="human-column">
-    <div class="grid">
+  <!-- ===== workspace: generator + attacker share the same layout ===== -->
+  <div class="workspace">
 
+    <!-- Generator: solve area -->
+    <section class="card main-card only-gen" aria-labelledby="solve-h">
+      <h2 id="solve-h">Solve this challenge</h2>
+      <p id="instruction" class="instruction">Type the characters you see.</p>
 
-    <!-- =========================================================
-         SOLVE AREA
-    ========================================================== -->
+      <img id="shot" class="shot" alt="CAPTCHA challenge" width="440" height="260">
 
-    <section
-      aria-labelledby="solve-h"
-    >
-
-      <h2 id="solve-h">
-        Solve this challenge
-      </h2>
-
-
-      <p
-        id="instruction"
-        class="instruction"
-      >
-        Type the characters you see.
-      </p>
-
-
-      <!-- Challenge image -->
-
-      <img
-        id="shot"
-        class="shot"
-        alt="CAPTCHA challenge"
-        width="440"
-        height="260"
-      >
-
-
-      <!-- =======================================================
-           TEXT ANSWER
-      ======================================================== -->
-
-      <div
-        id="text-answer-area"
-      >
-
-        <form
-          id="answer-form"
-          class="row"
-          autocomplete="off"
-        >
-
-          <input
-            id="answer"
-            type="text"
-            maxlength="8"
-            aria-label="Characters you see"
-            required
-          >
-
-          <button
-            type="submit"
-          >
-            Check answer
-          </button>
-
+      <div id="text-answer-area">
+        <form id="answer-form" class="row" autocomplete="off">
+          <input id="answer" type="text" maxlength="8" aria-label="Characters you see" required>
+          <button type="submit">Check answer</button>
         </form>
-
       </div>
 
-
-      <!-- =======================================================
-           IMAGE ANSWER
-      ======================================================== -->
-
-      <div
-        id="image-answer-area"
-        class="hidden"
-      >
-
-        <p class="task-box">
-          Click the requested object in the image.
-        </p>
-
-        <button
-          type="button"
-          id="image-submit"
-        >
-          Confirm selection
-        </button>
-
+      <div id="image-answer-area" class="hidden">
+        <p class="task-box">Click the requested object in the image.</p>
+        <div class="row"><button type="button" id="image-submit">Confirm selection</button></div>
       </div>
 
-
-      <!-- =======================================================
-           PUZZLE ANSWER
-      ======================================================== -->
-
-      <div
-        id="puzzle-answer-area"
-        class="hidden"
-      >
-
-        <div
-          id="puzzle-grid"
-          aria-label="Puzzle tiles"
-        ></div>
-
-        <div class="row">
-
-          <button
-            type="button"
-            id="puzzle-submit"
-          >
-            Check puzzle
-          </button>
-
-        </div>
-
+      <div id="puzzle-answer-area" class="hidden">
+        <div id="puzzle-grid" aria-label="Puzzle tiles"></div>
+        <div class="row"><button type="button" id="puzzle-submit">Check puzzle</button></div>
       </div>
 
+      <div class="row"><button type="button" id="refresh" class="ghost">New challenge</button></div>
 
-      <!-- New challenge -->
-
-      <div class="row">
-
-        <button
-          type="button"
-          id="refresh"
-          class="ghost"
-        >
-          New challenge
-        </button>
-
-      </div>
-
-
-      <div
-        id="msg"
-        class="msg"
-        role="status"
-        aria-live="polite"
-      ></div>
-
-
-      <div
-        id="tally"
-        class="tally"
-      >
-        No attempts yet.
-      </div>
-
+      <div id="msg" class="msg" role="status" aria-live="polite"></div>
+      <div id="tally" class="tally">No attempts yet.</div>
     </section>
 
+    <!-- Attacker: same position as the solve area -->
+    <section class="card main-card only-att" aria-labelledby="attacker-heading">
+      <h2 id="attacker-heading">Run the attacker</h2>
 
-    <!-- =========================================================
-         SETTINGS
-    ========================================================== -->
+      <label for="attacker-type" class="instruction">Attacker challenge type</label>
+      <div class="attacker-controls">
+        <select id="attacker-type">
+          <option value="text">Text CAPTCHA (OCR)</option>
+          <option value="image">Image CAPTCHA</option>
+          <option value="puzzle">Puzzle CAPTCHA</option>
+        </select>
+        <button type="button" id="start-attacker">Start attacker</button>
+      </div>
 
-    <section
-      aria-labelledby="settings-h"
-    >
+      <p id="attacker-status" class="status-line" role="status" aria-live="polite">Ready to run.</p>
 
-      <h2 id="settings-h">
-        Difficulty
-      </h2>
+      <img id="attacker-image" class="attacker-image hidden" alt="Challenge being attempted by the attacker">
 
+      <h3>Live activity</h3>
+      <ol id="attacker-events" class="activity-log"><li>Waiting for an experiment.</li></ol>
 
-      <!-- TEXT DIFFICULTY -->
+      <p id="attacker-result" class="msg" aria-live="polite"></p>
+    </section>
+
+    <!-- Difficulty: same position on both pages -->
+    <section class="card settings-card" aria-labelledby="settings-h">
+      <h2 id="settings-h">Difficulty</h2>
 
       <div id="text-settings">
-
         <div class="knob">
-
-          <label for="distort">
-
-            Distortion
-
-            <output id="o-distort">
-              0
-            </output>
-
-          </label>
-
-          <small>
-            Waves the text and shifts letters
-            up and down.
-          </small>
-
-          <input
-            id="distort"
-            type="range"
-            min="0"
-            max="10"
-            value="0"
-          >
-
+          <label for="distort">Distortion <output id="o-distort">0</output></label>
+          <small>Waves the text and shifts letters up and down.</small>
+          <input id="distort" type="range" min="0" max="10" value="0">
         </div>
-
-
         <div class="knob">
-
-          <label for="noise">
-
-            Noise
-
-            <output id="o-noise">
-              0
-            </output>
-
-          </label>
-
-          <small>
-            Adds lines, speckle and blur.
-          </small>
-
-          <input
-            id="noise"
-            type="range"
-            min="0"
-            max="10"
-            value="0"
-          >
-
+          <label for="noise">Noise <output id="o-noise">0</output></label>
+          <small>Adds lines, speckle and blur.</small>
+          <input id="noise" type="range" min="0" max="10" value="0">
         </div>
-
-
         <div class="knob">
-
-          <label for="rotate">
-
-            Rotation
-
-            <output id="o-rotate">
-              0
-            </output>
-
-          </label>
-
-          <small>
-            Tilts each letter by a random angle.
-          </small>
-
-          <input
-            id="rotate"
-            type="range"
-            min="0"
-            max="10"
-            value="0"
-          >
-
+          <label for="rotate">Rotation <output id="o-rotate">0</output></label>
+          <small>Tilts each letter by a random angle.</small>
+          <input id="rotate" type="range" min="0" max="10" value="0">
         </div>
-
       </div>
 
-
-      <!-- IMAGE SETTINGS -->
-
-      <div
-        id="image-settings"
-        class="hidden"
-      >
-
+      <div id="image-settings" class="hidden">
         <div class="knob">
-
-          <label>
-
-            Image difficulty
-
-            <output id="o-image-difficulty">
-              3
-            </output>
-
-          </label>
-
-          <small>
-            Controls visual complexity.
-          </small>
-
-          <input
-            id="image-difficulty"
-            type="range"
-            min="0"
-            max="10"
-            value="3"
-          >
-
+          <label for="image-difficulty">Image difficulty <output id="o-image-difficulty">3</output></label>
+          <small>Controls visual complexity.</small>
+          <input id="image-difficulty" type="range" min="0" max="10" value="3">
         </div>
-
-
         <div class="knob">
-
-          <label>
-
-            Objects
-
-            <output id="o-object-count">
-              6
-            </output>
-
-          </label>
-
-          <small>
-            Number of objects shown.
-          </small>
-
-          <input
-            id="object-count"
-            type="range"
-            min="3"
-            max="10"
-            value="6"
-          >
-
+          <label for="object-count">Objects <output id="o-object-count">6</output></label>
+          <small>Number of objects shown.</small>
+          <input id="object-count" type="range" min="3" max="10" value="6">
         </div>
-
       </div>
 
-
-      <!-- PUZZLE SETTINGS -->
-
-      <div
-        id="puzzle-settings"
-        class="hidden"
-      >
-
+      <div id="puzzle-settings" class="hidden">
         <div class="knob">
-
-          <label>
-
-            Puzzle difficulty
-
-            <output id="o-puzzle-difficulty">
-              3
-            </output>
-
-          </label>
-
-          <small>
-            Controls puzzle complexity.
-          </small>
-
-          <input
-            id="puzzle-difficulty"
-            type="range"
-            min="0"
-            max="10"
-            value="3"
-          >
-
+          <label for="puzzle-difficulty">Puzzle difficulty <output id="o-puzzle-difficulty">3</output></label>
+          <small>Controls puzzle complexity.</small>
+          <input id="puzzle-difficulty" type="range" min="0" max="10" value="3">
         </div>
-
       </div>
-
-    
     </section>
-    <!-- Existing settings section ends -->
-
-    </div>
-    <!-- Existing .grid ends -->
-
   </div>
-  <!-- Human column ends -->
 
-  <!-- AI Attacker panel -->
-  <section class="attacker-panel" aria-labelledby="attacker-heading">
-    <h2 id="attacker-heading">AI Attacker</h2>
+  <!-- ===== report (own page) ===== -->
+  <section class="card only-rep" aria-labelledby="report-heading">
+    <h2 id="report-heading">Experiment results</h2>
 
-    <p class="lede">
-      The local solver will attempt a separately issued challenge.
-    </p>
+    <div class="toolbar">
+      <button type="button" id="refresh-report" class="ghost">Refresh report</button>
 
-    <label for="attacker-type">Attacker challenge type</label>
-    <div class="attacker-controls">
-      <select id="attacker-type">
-        <option value="text">Text CAPTCHA (OCR)</option>
-        <option value="image">Image CAPTCHA</option>
-        <option value="puzzle">Puzzle CAPTCHA</option>
-      </select>
+      <div class="report-view-toggle" role="tablist" aria-label="Report view">
+        <button type="button" class="view-btn active" data-view="attempts" role="tab">
+          Per attempt
+        </button>
+        <button type="button" class="view-btn" data-view="summary" role="tab">
+          Summary
+        </button>
+      </div>
 
-      <button type="button" id="start-attacker">
-        Start attacker
-      </button>
+      <p id="report-status" class="status-line" role="status" aria-live="polite">
+        Report not loaded yet.
+      </p>
     </div>
 
-    <p id="attacker-status" class="status-line" role="status"
-       aria-live="polite">
-      Ready to run.
-    </p>
+    <!-- Per-attempt view -->
+    <div id="report-attempts-wrap" class="table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Actor</th>
+            <th>Challenge</th>
+            <th>Result</th>
+            <th>Solve time (s)</th>
+            <th>Risk</th>
+            <th>Fail reason</th>
+          </tr>
+        </thead>
+        <tbody id="report-attempts-body">
+          <tr><td colspan="8">No report loaded.</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-    <img id="attacker-image" class="attacker-image hidden"
-         alt="Challenge being attempted by the attacker">
-
-    <h3>Live activity</h3>
-    <ol id="attacker-events" class="activity-log">
-      <li>Waiting for an experiment.</li>
-    </ol>
-
-    <p id="attacker-result" class="msg" aria-live="polite"></p>
+    <!-- Summary view -->
+    <div id="report-summary-wrap" class="table-wrap hidden">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Actor</th><th>Challenge</th><th>Attempts</th><th>Successes</th>
+            <th>Success rate</th><th>Avg. time (s)</th><th>Avg. risk</th>
+            <th>Latest risk</th>
+          </tr>
+        </thead>
+        <tbody id="report-body">
+          <tr><td colspan="8">No report loaded.</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
+  <!-- ===== behaviour monitoring (own page) ===== -->
+  <div class="only-beh">
+    <section class="card" aria-labelledby="beh-heading">
+      <h2 id="beh-heading">Behaviour Monitoring</h2>
+      <p class="lede">Live behavioural telemetry for the most recent attempts across all sessions.</p>
 
-</div>
-<!-- Comparison grid ends -->
+      <div class="toolbar">
+        <button type="button" id="refresh-behaviour" class="ghost">Refresh</button>
 
-<!-- Human vs Attacker report -->
-<section class="report-panel" aria-labelledby="report-heading">
-  <h2 id="report-heading">Human vs Attacker Report</h2>
+        <label for="beh-filter-actor" class="instruction" style="margin:0">Actor</label>
+        <select id="beh-filter-actor" class="attacker-controls" style="flex:0;min-width:140px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;">
+          <option value="">All</option>
+          <option value="human">Human</option>
+          <option value="attacker">Attacker</option>
+        </select>
 
-  <p>
-    Experiment:
-    <strong>side_by_side_v1</strong>
-  </p>
+        <label for="beh-filter-type" class="instruction" style="margin:0">Type</label>
+        <select id="beh-filter-type" style="flex:0;min-width:140px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;">
+          <option value="">All</option>
+          <option value="text">Text</option>
+          <option value="image">Image</option>
+          <option value="puzzle">Puzzle</option>
+        </select>
 
-  <button type="button" id="refresh-report" class="ghost">
-    Refresh report
-  </button>
+        <p id="beh-status" class="status-line" role="status" aria-live="polite">Not loaded yet.</p>
+      </div>
 
-  <p id="report-status" class="status-line" role="status"
-     aria-live="polite">
-    Report not loaded yet.
-  </p>
+      <div id="beh-cards" class="stat-grid"></div>
 
-  <table class="report-table">
-    <thead>
-      <tr>
-        <th>Actor</th>
-        <th>Challenge</th>
-        <th>Attempts</th>
-        <th>Successes</th>
-        <th>Success rate</th>
-        <th>Avg. time (s)</th>
-        <th>Avg. risk</th>
-      </tr>
-    </thead>
-    <tbody id="report-body">
-      <tr>
-        <td colspan="7">No report loaded.</td>
-      </tr>
-    </tbody>
-  </table>
-</section>
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Actor</th>
+              <th>Type</th>
+              <th>Result</th>
+              <th>Time (s)</th>
+              <th>Risk</th>
+              <th>Keys</th>
+              <th>Pointer</th>
+              <th>Interactions</th>
+              <th>Pasted</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="beh-body">
+            <tr><td colspan="11">No data loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== session monitoring (own page) ===== -->
+  <div class="only-ses">
+    <section class="card" aria-labelledby="ses-heading">
+      <h2 id="ses-heading">Session Monitoring</h2>
+      <p class="lede">Per-session roll-up: traffic, actors, average risk and latest activity.</p>
+
+      <div class="toolbar">
+        <button type="button" id="refresh-sessions" class="ghost">Refresh</button>
+        <p id="ses-status" class="status-line" role="status" aria-live="polite">Not loaded yet.</p>
+      </div>
+
+      <div id="ses-cards" class="stat-grid"></div>
+
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>IP hash</th>
+              <th>Primary actor</th>
+              <th>Attempts</th>
+              <th>Human / Attacker</th>
+              <th>Successes</th>
+              <th>Avg risk</th>
+              <th>Max risk</th>
+              <th>Avg time (s)</th>
+              <th>Last seen</th>
+              <th>Latest</th>
+            </tr>
+          </thead>
+          <tbody id="ses-body">
+            <tr><td colspan="11">No data loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== evaluation (own page) ===== -->
+  <div class="only-eval">
+    <div class="toolbar">
+      <button type="button" id="refresh-eval" class="ghost">Refresh evaluation</button>
+      <p id="eval-status" class="status-line" role="status" aria-live="polite">Evaluation not loaded yet.</p>
+    </div>
+    <div id="eval-cards" class="stat-grid"></div>
+    <section class="card" aria-labelledby="eval-h">
+      <h2 id="eval-h">Verdict per challenge type</h2>
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Challenge</th><th>Human success</th><th>Attacker success</th><th>Gap (points)</th>
+              <th>Human time (s)</th><th>Attacker time (s)</th><th>Security</th><th>Usability</th>
+            </tr>
+          </thead>
+          <tbody id="eval-body"><tr><td colspan="8">No evaluation loaded.</td></tr></tbody>
+        </table>
+      </div>
+      <p class="note">Security: Strong = attacker succeeds under 20%, Moderate = 20–49%, Weak = 50% or more. Usability: Good = humans succeed 80% or more. Gap = human rate minus attacker rate; a larger gap is better.</p>
+    </section>
+  </div>
+
 </main>
+</div>
 
 
 <script>
@@ -2478,265 +2192,94 @@ $("image-submit")
    Puzzle creation
 ================================================================= */
 
-function createPuzzleGrid(
-  task
-) {
-
-  const grid =
-    $("puzzle-grid");
-
-
-  grid.innerHTML =
-    "";
-
-
-  const rows =
-    Number(
-      task?.rows || 2
-    );
-
-
-  const cols =
-    Number(
-      task?.cols || 2
-    );
-
-
-  const tileCount =
-    rows * cols;
-
-
-  /*
-   * Start with correct tile IDs,
-   * then shuffle them.
-   */
-  const order =
-    Array.from(
-      {
-        length:tileCount
-      },
-      (_, index) =>
-        index
-    );
-
-
-  /*
-   * Fisher-Yates shuffle.
-   */
-  for (
-    let i = order.length - 1;
-    i > 0;
-    i--
-  ) {
-
-    const j =
-      Math.floor(
-        Math.random() *
-        (i + 1)
-      );
-
-
-    [
-      order[i],
-      order[j]
-    ] =
-    [
-      order[j],
-      order[i]
-    ];
-  }
-
-
-  /*
-   * Avoid accidentally starting
-   * already solved.
-   */
-  let solved =
-    order.every(
-      (value, index) =>
-        value === index
-    );
-
-
-  if (
-    solved &&
-    order.length > 1
-  ) {
-
-    [
-      order[0],
-      order[1]
-    ] =
-    [
-      order[1],
-      order[0]
-    ];
-  }
-
-
-  grid.style.gridTemplateColumns =
-    `repeat(${cols}, 1fr)`;
-
-
-  order.forEach(
-    tileNumber => {
-
-      const tile =
-        document.createElement(
-          "div"
-        );
-
-
-      tile.className =
-        "puzzle-tile";
-
-
-      tile.draggable =
-        true;
-
-
-      tile.dataset.tile =
-        String(tileNumber);
-
-
-      const row =
-        Math.floor(
-          tileNumber / cols
-        );
-
-
-      const col =
-        tileNumber % cols;
-
-
-      /*
-       * Background uses the original
-       * challenge image.
-       */
-      const x =
-        cols === 1
-          ? 0
-          : (
-              col /
-              (cols - 1)
-            ) * 100;
-
-
-      const y =
-        rows === 1
-          ? 0
-          : (
-              row /
-              (rows - 1)
-            ) * 100;
-
-
-      tile.style.backgroundImage =
-        `url("${$("shot").src}")`;
-
-
-      tile.style.backgroundSize =
-        `${cols * 100}% ${rows * 100}%`;
-
-
-      tile.style.backgroundPosition =
-        `${x}% ${y}%`;
-
-
-      const number =
-        document.createElement(
-          "span"
-        );
-
-
-      number.className =
-        "puzzle-tile-number";
-
-
-      number.textContent =
-        tileNumber + 1;
-
-
-      tile.appendChild(
-        number
-      );
-
-
-      tile.addEventListener(
-        "dragstart",
-        () => {
-
-          recordInteraction();
-
-          tile.classList.add(
-            "dragging"
-          );
-        }
-      );
-
-
-      tile.addEventListener(
-        "dragend",
-        () => {
-
-          tile.classList.remove(
-            "dragging"
-          );
-        }
-      );
-
-
-      tile.addEventListener(
-        "dragover",
-        event => {
-
-          event.preventDefault();
-
-          recordInteraction();
-        }
-      );
-
-
-      tile.addEventListener(
-        "drop",
-        event => {
-
-          event.preventDefault();
-
-          swapPuzzleTiles(
-            tile
-          );
-        }
-      );
-
-
-      /*
-       * Click-to-swap fallback.
-       * This makes the puzzle easier to use
-       * on devices where drag/drop is limited.
-       */
-      tile.addEventListener(
-        "click",
-        () => {
-
-          handlePuzzleClick(
-            tile
-          );
-        }
-      );
-
-
-      grid.appendChild(
-        tile
-      );
-    }
-  );
+function createPuzzleGrid(task) {
+  selectedPuzzleTile = null;
+
+  const grid = $("puzzle-grid");
+  grid.innerHTML = "";
+
+  const rows = Number(task?.rows || 2);
+  const cols = Number(task?.cols || 2);
+  const tileCount = rows * cols;
+
+  const shuffledOrder =
+    Array.isArray(task?.shuffled_order) &&
+    task.shuffled_order.length === tileCount
+      ? task.shuffled_order.map(Number)
+      : (() => {
+          const arr = Array.from({ length: tileCount }, (_, i) => i);
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+          }
+          if (arr.every((v, i) => v === i) && arr.length > 1) {
+            [arr[0], arr[1]] = [arr[1], arr[0]];
+          }
+          return arr;
+        })();
+
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  shuffledOrder.forEach((tileNumber) => {
+    const tile = document.createElement("div");
+    tile.className = "puzzle-tile";
+    tile.draggable = true;
+    tile.dataset.tile = String(tileNumber);
+
+    const row = Math.floor(tileNumber / cols);
+    const col = tileNumber % cols;
+
+    const x = cols === 1 ? 0 : (col / (cols - 1)) * 100;
+    const y = rows === 1 ? 0 : (row / (rows - 1)) * 100;
+
+    tile.style.backgroundImage = `url("${$("shot").src}")`;
+    tile.style.backgroundSize = `${cols * 100}% ${rows * 100}%`;
+    tile.style.backgroundPosition = `${x}% ${y}%`;
+
+    const number = document.createElement("span");
+    number.className = "puzzle-tile-number";
+    number.textContent = tileNumber + 1;
+    tile.appendChild(number);
+
+    tile.addEventListener("dragstart", () => {
+      recordInteraction();
+      tile.classList.add("dragging");
+    });
+
+    tile.addEventListener("dragend", () => {
+      tile.classList.remove("dragging");
+    });
+
+    tile.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      recordInteraction();
+    });
+
+    tile.addEventListener("drop", (event) => {
+      event.preventDefault();
+      swapPuzzleTiles(tile);
+    });
+
+    tile.addEventListener("click", () => {
+      handlePuzzleClick(tile);
+    });
+
+    grid.appendChild(tile);
+  });
 }
 
 
 /* =================================================================
    Puzzle drag/drop
 ================================================================= */
+function swapNodes(a, b) {
+  if (a === b) return;
+  const marker = document.createElement("div");
+  a.parentNode.insertBefore(marker, a);
+  b.parentNode.insertBefore(a, b);
+  marker.parentNode.insertBefore(b, marker);
+  marker.remove();
+}
 
 function swapPuzzleTiles(
   target
@@ -2751,40 +2294,11 @@ function swapPuzzleTiles(
   if (
     !dragging ||
     dragging === target
+    
   ) {
     return;
   }
-
-
-  const parent =
-    target.parentNode;
-
-
-  const targetNext =
-    target.nextSibling;
-
-
-  parent.insertBefore(
-    dragging,
-    target
-  );
-
-
-  if (
-    targetNext
-  ) {
-
-    parent.insertBefore(
-      target,
-      targetNext
-    );
-
-  } else {
-
-    parent.appendChild(
-      target
-    );
-  }
+  swapNodes(dragging, target);
 
 
   puzzleMoves++;
@@ -2853,67 +2367,7 @@ function handlePuzzleClick(
   }
 
 
-  const grid =
-    $("puzzle-grid");
-
-
-  const children =
-    Array.from(
-      grid.children
-    );
-
-
-  const firstIndex =
-    children.indexOf(
-      selectedPuzzleTile
-    );
-
-
-  const secondIndex =
-    children.indexOf(
-      tile
-    );
-
-
-  if (
-    firstIndex < 0 ||
-    secondIndex < 0
-  ) {
-    return;
-  }
-
-
-  if (
-    firstIndex <
-    secondIndex
-  ) {
-
-    grid.insertBefore(
-      tile,
-      selectedPuzzleTile
-    );
-
-    grid.insertBefore(
-      selectedPuzzleTile,
-      children[secondIndex]
-        ?.nextSibling || null
-    );
-
-  } else {
-
-    grid.insertBefore(
-      selectedPuzzleTile,
-      tile
-    );
-
-    grid.insertBefore(
-      tile,
-      children[firstIndex]
-        ?.nextSibling || null
-    );
-  }
-
-
+  swapNodes(selectedPuzzleTile, tile);
   selectedPuzzleTile
     .classList.remove(
       "dragging"
@@ -3022,7 +2476,6 @@ async function submitChallenge(
     await loadChallenge(
       challengeType
     );
-    await refreshExperimentReport();
 
     return;
   }
@@ -3344,7 +2797,6 @@ function addAttackerEvent(message, kind = "") {
 
   list.appendChild(item);
 
-  // Keep the activity panel bounded.
   while (list.children.length > 40) {
     list.removeChild(list.firstElementChild);
   }
@@ -3403,7 +2855,6 @@ async function runAttacker() {
   addAttackerEvent(`Starting ${type} challenge experiment.`);
 
   try {
-    // 1. Issue a fresh challenge for the attacker.
     const issuedResponse = await post(
       "/api/captcha/new",
       attackerParams(type)
@@ -3428,7 +2879,6 @@ async function runAttacker() {
     addAttackerEvent("Challenge image received.");
     addAttackerEvent(`Challenge type: ${issued.type}.`);
 
-    // 2. Ask the local backend solver to attempt it.
     setAttackerStatus("Solver is analysing the challenge...");
     addAttackerEvent("Sending challenge to the local solver.");
 
@@ -3447,19 +2897,17 @@ async function runAttacker() {
 
     const solved = solveResponse.data;
 
-    // Show the solver's returned activity.
-    
-const events = Array.isArray(solved.events) ? solved.events : [];
+    const events = Array.isArray(solved.events) ? solved.events : [];
 
-for (const event of events) {
-    const message =
+    for (const event of events) {
+      const message =
         typeof event === "string" ? event : JSON.stringify(event);
 
-    addAttackerEvent(message);
+      addAttackerEvent(message);
 
-    // Visual simulation: show each step separately.
-    await new Promise(resolve => setTimeout(resolve, 650));
-}
+      await new Promise(resolve => setTimeout(resolve, 650));
+    }
+
     addAttackerEvent(
       `Solver: ${solved.solver || "local solver"}.`
     );
@@ -3472,7 +2920,6 @@ for (const event of events) {
       `Guess: ${formatGuess(solved.guess)}`
     );
 
-    // 3. Verify the guess and save it as an attacker attempt.
     setAttackerStatus("Submitting guess for verification...");
     addAttackerEvent("Submitting guess to the CAPTCHA verifier.");
 
@@ -3520,9 +2967,6 @@ for (const event of events) {
       addAttackerEvent("Verification: FAILED.", "failure");
     }
 
-    // 4. Refresh the persisted experiment report.
-    await refreshExperimentReport();
-
   } catch (error) {
     console.error("Attacker experiment error:", error);
 
@@ -3545,14 +2989,16 @@ $("start-attacker").addEventListener("click", runAttacker);
 
 
 /* ================================================================
-   Experiment report
+   Summary report
 ================================================================ */
 
 async function refreshExperimentReport() {
   const status = $("report-status");
   const tbody = $("report-body");
 
-  status.textContent = "Loading report...";
+  if (!tbody) return;
+
+  status.textContent = "Loading summary report...";
 
   try {
     const response = await fetch(
@@ -3560,7 +3006,6 @@ async function refreshExperimentReport() {
     );
 
     let data = {};
-
     try {
       data = await response.json();
     } catch (_) {
@@ -3572,19 +3017,15 @@ async function refreshExperimentReport() {
     }
 
     const rows = Array.isArray(data.report) ? data.report : [];
-
     tbody.replaceChildren();
 
     if (rows.length === 0) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-
-      td.colSpan = 7;
+      td.colSpan = 8;
       td.textContent = "No attempts recorded for this experiment yet.";
-
       tr.appendChild(td);
       tbody.appendChild(tr);
-
       status.textContent = "No experiment results yet.";
       return;
     }
@@ -3597,15 +3038,10 @@ async function refreshExperimentReport() {
         row.challenge_type ?? "unknown",
         row.total_attempts ?? 0,
         row.successes ?? 0,
-        row.success_rate_percent == null
-          ? "N/A"
-          : `${row.success_rate_percent}%`,
-        row.avg_solve_time == null
-          ? "N/A"
-          : row.avg_solve_time,
-        row.avg_risk == null
-          ? "N/A"
-          : row.avg_risk
+        row.success_rate_percent == null ? "N/A" : `${row.success_rate_percent}%`,
+        row.avg_solve_time == null ? "N/A" : row.avg_solve_time,
+        row.avg_risk == null ? "N/A" : row.avg_risk,
+        row.latest_risk == null ? "N/A" : row.latest_risk,
       ];
 
       for (const value of values) {
@@ -3626,10 +3062,157 @@ async function refreshExperimentReport() {
   }
 }
 
-$("refresh-report").addEventListener(
-  "click",
-  refreshExperimentReport
-);
+
+/* ================================================================
+   Per-attempt report
+================================================================ */
+
+async function refreshAttemptsReport() {
+  const status = $("report-status");
+  const tbody = $("report-attempts-body");
+
+  if (!tbody) return;
+
+  status.textContent = "Loading per-attempt report...";
+
+  try {
+    const response = await fetch(
+      `/api/experiment/attempts?experiment_id=${encodeURIComponent(EXPERIMENT_ID)}&limit=200`
+    );
+
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (_) {
+      throw new Error("Attempts endpoint returned invalid JSON.");
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not load attempts.");
+    }
+
+    const attempts = Array.isArray(data.attempts) ? data.attempts : [];
+
+    tbody.replaceChildren();
+
+    if (attempts.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 8;
+      td.textContent = "No attempts recorded for this experiment yet.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      status.textContent = "No experiment results yet.";
+      return;
+    }
+
+    const riskBand = (r) => {
+      const v = Number(r);
+      if (!isFinite(v)) return { cls: "low", label: "—" };
+      if (v >= 0.60) return { cls: "high",   label: `High (${v})` };
+      if (v >= 0.30) return { cls: "medium", label: `Med (${v})` };
+      return { cls: "low", label: `Low (${v})` };
+    };
+
+    attempts.forEach((row, index) => {
+      const tr = document.createElement("tr");
+
+      const cellText = (value, extraClass) => {
+        const td = document.createElement("td");
+        td.textContent = value;
+        if (extraClass) td.className = extraClass;
+        tr.appendChild(td);
+        return td;
+      };
+
+      const cellNode = (node) => {
+        const td = document.createElement("td");
+        td.appendChild(node);
+        tr.appendChild(td);
+      };
+
+      cellText(String(index + 1));
+      cellText(row.ts_iso || "—");
+
+      const actorSpan = document.createElement("span");
+      actorSpan.className = "actor-pill " + (row.actor === "attacker" ? "attacker" : "human");
+      actorSpan.textContent = row.actor || "unknown";
+      cellNode(actorSpan);
+
+      cellText(row.challenge_type || "unknown");
+
+      const resultSpan = document.createElement("span");
+      resultSpan.className = "result-pill " + (row.correct ? "ok" : "bad");
+      resultSpan.textContent = row.correct ? "Correct" : "Wrong";
+      cellNode(resultSpan);
+
+      cellText(
+        row.solve_time == null
+          ? "—"
+          : Number(row.solve_time).toFixed(2)
+      );
+
+      const band = riskBand(row.risk);
+      const riskSpan = document.createElement("span");
+      riskSpan.className = "risk-pill " + band.cls;
+      riskSpan.textContent = band.label;
+      cellNode(riskSpan);
+
+      cellText(row.fail_reason || "—");
+
+      tbody.appendChild(tr);
+    });
+
+    status.textContent = `Loaded ${attempts.length} attempt(s).`;
+
+  } catch (error) {
+    console.error("Attempts report error:", error);
+    status.textContent =
+      `Report error: ${error.message || "Could not load attempts."}`;
+  }
+}
+
+
+/* ================================================================
+   Report view toggle
+================================================================ */
+
+function initReportToggle() {
+  const buttons = document.querySelectorAll(".report-view-toggle .view-btn");
+  const attemptsWrap = $("report-attempts-wrap");
+  const summaryWrap = $("report-summary-wrap");
+
+  if (!buttons.length || !attemptsWrap || !summaryWrap) return;
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const view = btn.dataset.view;
+
+      buttons.forEach((b) => b.classList.toggle("active", b === btn));
+
+      if (view === "attempts") {
+        attemptsWrap.classList.remove("hidden");
+        summaryWrap.classList.add("hidden");
+        refreshAttemptsReport();
+      } else {
+        summaryWrap.classList.remove("hidden");
+        attemptsWrap.classList.add("hidden");
+        refreshExperimentReport();
+      }
+    });
+  });
+}
+
+$("refresh-report").addEventListener("click", () => {
+  const activeBtn = document.querySelector(".report-view-toggle .view-btn.active");
+  const view = activeBtn ? activeBtn.dataset.view : "attempts";
+  if (view === "summary") {
+    refreshExperimentReport();
+  } else {
+    refreshAttemptsReport();
+  }
+});
+
 
 /* =================================================================
    First challenge
@@ -3641,6 +3224,472 @@ loadChallenge(
 
 </script>
 
-</body>
 
+<!-- UI helpers + evaluation page -->
+<script>
+(function () {
+  const g = (id) => document.getElementById(id);
+  const page = ["generator", "attacker", "report", "evaluation"]
+    .find((c) => document.body.classList.contains(c)) || "generator";
+
+  /* mobile sidebar */
+  const burger = g("burger");
+  if (burger) {
+    burger.addEventListener("click", () =>
+      document.body.classList.toggle("nav-open"));
+  }
+
+  /* attacker page: show the settings of the selected attacker type */
+  if (page === "attacker") {
+    const sel = g("attacker-type");
+    if (sel) {
+      const show = (t) => ["text", "image", "puzzle"].forEach((k) =>
+        g(k + "-settings").classList.toggle("hidden", k !== t));
+
+      const originalUpdate = window.updateModeUI;
+      window.updateModeUI = function () {
+        if (typeof originalUpdate === "function") originalUpdate();
+        show(sel.value);
+      };
+      show(sel.value);
+      sel.addEventListener("change", () => show(sel.value));
+    }
+  }
+
+  /* evaluation */
+  const num = (v) => (v == null || isNaN(v) ? null : Number(v));
+  const fmt = (v, d = 1) => (v == null ? "N/A" : Number(v).toFixed(d));
+
+  function totals(rows, actor) {
+    let a = 0, s = 0, tSum = 0, tN = 0, rSum = 0, rN = 0;
+    rows.filter((r) => r.actor === actor).forEach((r) => {
+      const n = num(r.total_attempts) || 0;
+      a += n; s += num(r.successes) || 0;
+      if (num(r.avg_solve_time) != null) { tSum += r.avg_solve_time * n; tN += n; }
+      if (num(r.avg_risk) != null) { rSum += r.avg_risk * n; rN += n; }
+    });
+    return { a, s, rate: a ? (s / a) * 100 : null,
+             time: tN ? tSum / tN : null, risk: rN ? rSum / rN : null };
+  }
+
+  function stat(label, value, sub, pct, cls) {
+    const d = document.createElement("div");
+    d.className = "stat " + (cls || "");
+    const s1 = document.createElement("small"); s1.textContent = label;
+    const st = document.createElement("strong"); st.textContent = value;
+    const s2 = document.createElement("span"); s2.textContent = sub;
+    d.append(s1, st, s2);
+    if (pct != null) {
+      const b = document.createElement("div"); b.className = "bar";
+      const i = document.createElement("div");
+      i.style.width = Math.max(0, Math.min(100, pct)) + "%";
+      b.appendChild(i); d.appendChild(b);
+    }
+    return d;
+  }
+
+  function badge(text, cls) {
+    const s = document.createElement("span");
+    s.className = "badge " + cls; s.textContent = text; return s;
+  }
+
+  async function refreshEvaluation() {
+    const status = g("eval-status");
+    if (!status) return;
+    status.textContent = "Loading evaluation...";
+    try {
+      const res = await fetch("/api/experiment/report?experiment_id=" +
+        encodeURIComponent("side_by_side_v1"));
+      let data = {};
+      try { data = await res.json(); }
+      catch (_) { throw new Error("Report endpoint returned invalid JSON."); }
+      if (!res.ok) throw new Error(data.error || "Could not load report.");
+
+      const rows = Array.isArray(data.report) ? data.report : [];
+      const cards = g("eval-cards"), body = g("eval-body");
+      cards.replaceChildren(); body.replaceChildren();
+
+      if (!rows.length) {
+        const tr = document.createElement("tr"), td = document.createElement("td");
+        td.colSpan = 8; td.textContent = "No attempts recorded yet. Run the generator and the attacker first.";
+        tr.appendChild(td); body.appendChild(tr);
+        status.textContent = "No experiment results yet.";
+        return;
+      }
+
+      const h = totals(rows, "human"), a = totals(rows, "attacker");
+      cards.append(
+        stat("Human success rate", fmt(h.rate) + "%", h.s + " of " + h.a + " attempts", h.rate),
+        stat("Attacker success rate", fmt(a.rate) + "%", a.s + " of " + a.a + " attempts", a.rate,
+             a.rate != null && a.rate >= 50 ? "bad" : a.rate != null && a.rate >= 20 ? "warn" : ""),
+        stat("Average solve time", fmt(h.time, 2) + "s human", fmt(a.time, 2) + "s attacker"),
+        stat("Average risk score", fmt(h.risk, 2) + " human", fmt(a.risk, 2) + " attacker")
+      );
+
+      const by = {};
+      rows.forEach((r) => {
+        const t = r.challenge_type ?? "unknown";
+        (by[t] = by[t] || {})[r.actor] = r;
+      });
+
+      Object.keys(by).forEach((t) => {
+        const hr = by[t].human, ar = by[t].attacker;
+        const hRate = hr ? num(hr.success_rate_percent) : null;
+        const aRate = ar ? num(ar.success_rate_percent) : null;
+        const tr = document.createElement("tr");
+        const cell = (v) => { const td = document.createElement("td");
+          if (v instanceof Node) td.appendChild(v); else td.textContent = v;
+          tr.appendChild(td); };
+        cell(t);
+        cell(hRate == null ? "N/A" : hRate + "%");
+        cell(aRate == null ? "N/A" : aRate + "%");
+        cell(hRate == null || aRate == null ? "N/A" : fmt(hRate - aRate));
+        cell(hr ? fmt(num(hr.avg_solve_time), 2) : "N/A");
+        cell(ar ? fmt(num(ar.avg_solve_time), 2) : "N/A");
+        cell(aRate == null ? badge("Need data", "") :
+             aRate >= 50 ? badge("Weak", "bad") :
+             aRate >= 20 ? badge("Moderate", "warn") : badge("Strong", "ok"));
+        cell(hRate == null ? badge("Need data", "") :
+             hRate >= 80 ? badge("Good", "ok") : badge("Needs review", "warn"));
+        body.appendChild(tr);
+      });
+
+      status.textContent = "Evaluated " + Object.keys(by).length + " challenge type(s).";
+    } catch (e) {
+      console.error("Evaluation error:", e);
+      status.textContent = "Evaluation error: " + (e.message || "Could not load.");
+    }
+  }
+
+  const refreshEvalBtn = g("refresh-eval");
+  if (refreshEvalBtn) refreshEvalBtn.addEventListener("click", refreshEvaluation);
+
+  if (page === "report") {
+    initReportToggle();
+    refreshAttemptsReport();
+  }
+  if (page === "evaluation") refreshEvaluation();
+})();
+</script>
+<script>
+(function () {
+  const g = (id) => document.getElementById(id);
+  const page = ["generator", "attacker", "report", "evaluation", "behaviour", "sessions"]
+    .find((c) => document.body.classList.contains(c)) || "generator";
+
+  const fmt = (v, d = 2) => (v == null ? "—" : Number(v).toFixed(d));
+  const fmtInt = (v) => (v == null ? "—" : String(Math.round(v)));
+
+  function riskPill(r) {
+    const v = Number(r);
+    if (!isFinite(v)) return { cls: "low", label: "—" };
+    if (v >= 0.60) return { cls: "high", label: `High (${v})` };
+    if (v >= 0.30) return { cls: "medium", label: `Med (${v})` };
+    return { cls: "low", label: `Low (${v})` };
+  }
+
+  function statCard(label, value, sub, pct, cls) {
+    const d = document.createElement("div");
+    d.className = "stat " + (cls || "");
+    const s1 = document.createElement("small"); s1.textContent = label;
+    const st = document.createElement("strong"); st.textContent = value;
+    const s2 = document.createElement("span"); s2.textContent = sub;
+    d.append(s1, st, s2);
+    if (pct != null) {
+      const b = document.createElement("div"); b.className = "bar";
+      const i = document.createElement("div");
+      i.style.width = Math.max(0, Math.min(100, pct)) + "%";
+      b.appendChild(i); d.appendChild(b);
+    }
+    return d;
+  }
+
+  function pill(text, cls) {
+    const s = document.createElement("span");
+    s.className = cls + " " + (cls.includes("risk") ? "" : "");
+    s.textContent = text;
+    return s;
+  }
+
+  // ---------------------------------------------------------------
+  // Behaviour monitoring
+  // ---------------------------------------------------------------
+
+  async function refreshBehaviour() {
+    const status = g("beh-status");
+    const tbody = g("beh-body");
+    const cards = g("beh-cards");
+    if (!status || !tbody) return;
+
+    const actorFilter = (g("beh-filter-actor")?.value || "").trim();
+    const typeFilter = (g("beh-filter-type")?.value || "").trim();
+
+    status.textContent = "Loading behaviour feed...";
+
+    const params = new URLSearchParams();
+    params.set("limit", "100");
+    if (actorFilter) params.set("actor", actorFilter);
+    if (typeFilter) params.set("type", typeFilter);
+
+    try {
+      const res = await fetch("/api/monitor/behaviour?" + params.toString());
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Failed to load behaviour feed.");
+
+      const attempts = Array.isArray(data.attempts) ? data.attempts : [];
+      const summary = data.summary || {};
+
+      cards.replaceChildren();
+      cards.append(
+        statCard(
+          "Total attempts",
+          fmtInt(summary.total),
+          `${summary.human_count || 0} human · ${summary.attacker_count || 0} attacker`
+        ),
+        statCard(
+          "Human avg risk",
+          fmt(summary.human_avg_risk, 2),
+          `avg solve ${fmt(summary.human_avg_time, 2)}s`,
+          summary.human_avg_risk != null ? summary.human_avg_risk * 100 : null,
+          summary.human_avg_risk >= 0.60 ? "bad" : summary.human_avg_risk >= 0.30 ? "warn" : ""
+        ),
+        statCard(
+          "Attacker avg risk",
+          fmt(summary.attacker_avg_risk, 2),
+          `avg solve ${fmt(summary.attacker_avg_time, 2)}s`,
+          summary.attacker_avg_risk != null ? summary.attacker_avg_risk * 100 : null,
+          summary.attacker_avg_risk >= 0.60 ? "bad" : summary.attacker_avg_risk >= 0.30 ? "warn" : ""
+        ),
+        statCard(
+          "Success rate",
+          fmt(summary.human_success_rate, 1) + "% human",
+          fmt(summary.attacker_success_rate, 1) + "% attacker"
+        )
+      );
+
+      tbody.replaceChildren();
+
+      if (!attempts.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 11;
+        td.textContent = "No attempts match the current filters.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        status.textContent = "No attempts found.";
+        return;
+      }
+
+      for (const a of attempts) {
+        const b = a.behaviour || {};
+        const tr = document.createElement("tr");
+
+        const cellText = (value) => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        };
+
+        const cellNode = (node) => {
+          const td = document.createElement("td");
+          td.appendChild(node);
+          tr.appendChild(td);
+        };
+
+        // Time
+        cellText(a.ts_iso || "—");
+
+        // Actor
+        const actorSpan = document.createElement("span");
+        actorSpan.className = "actor-pill " + (a.actor === "attacker" ? "attacker" : "human");
+        actorSpan.textContent = a.actor || "?";
+        cellNode(actorSpan);
+
+        // Type
+        cellText(a.challenge_type || "—");
+
+        // Result
+        const rSpan = document.createElement("span");
+        rSpan.className = "result-pill " + (a.correct ? "ok" : "bad");
+        rSpan.textContent = a.correct ? "Correct" : "Wrong";
+        cellNode(rSpan);
+
+        // Time
+        cellText(a.solve_time == null ? "—" : Number(a.solve_time).toFixed(2));
+
+        // Risk
+        const rk = riskPill(a.risk);
+        const rkSpan = document.createElement("span");
+        rkSpan.className = "risk-pill " + rk.cls;
+        rkSpan.textContent = rk.label;
+        cellNode(rkSpan);
+
+        // Keys
+        cellText(b.keys != null ? String(b.keys) : "—");
+
+        // Pointer moves
+        cellText(b.pointer_moves != null ? String(b.pointer_moves) : "—");
+
+        // Interaction events
+        cellText(b.interaction_events != null ? String(b.interaction_events) : "—");
+
+        // Pasted
+        cellText(b.pasted ? "Yes" : "No");
+
+        // Reason summary — first reason, or "—"
+        const reasons = Array.isArray(b.reasons) ? b.reasons : [];
+        cellText(reasons.length ? reasons[0] : "—");
+
+        tbody.appendChild(tr);
+      }
+
+      status.textContent = `Loaded ${attempts.length} attempt(s).`;
+    } catch (e) {
+      console.error("Behaviour monitor error:", e);
+      status.textContent = "Error: " + (e.message || "Could not load.");
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Session monitoring
+  // ---------------------------------------------------------------
+
+  async function refreshSessions() {
+    const status = g("ses-status");
+    const tbody = g("ses-body");
+    const cards = g("ses-cards");
+    if (!status || !tbody) return;
+
+    status.textContent = "Loading sessions...";
+
+    try {
+      const res = await fetch("/api/monitor/sessions?limit=50");
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Failed to load sessions.");
+
+      const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+      const summary = data.summary || {};
+
+      cards.replaceChildren();
+      cards.append(
+        statCard("Sessions", fmtInt(summary.total_sessions), `${summary.sessions_with_attempts || 0} with attempts`),
+        statCard("Total attempts", fmtInt(summary.total_attempts), "across returned sessions"),
+        statCard("Avg risk", fmt(summary.avg_risk, 2), "session-level average",
+                 summary.avg_risk != null ? summary.avg_risk * 100 : null,
+                 summary.avg_risk >= 0.60 ? "bad" : summary.avg_risk >= 0.30 ? "warn" : "")
+      );
+
+      tbody.replaceChildren();
+
+      if (!sessions.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 11;
+        td.textContent = "No sessions recorded yet.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        status.textContent = "No sessions found.";
+        return;
+      }
+
+      for (const s of sessions) {
+        const tr = document.createElement("tr");
+
+        const cellText = (value) => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        };
+
+        const cellNode = (node) => {
+          const td = document.createElement("td");
+          td.appendChild(node);
+          tr.appendChild(td);
+        };
+
+        // Session id (short)
+        cellText(String(s.id).slice(0, 8));
+
+        // IP hash (short)
+        cellText(s.ip ? String(s.ip).slice(0, 12) : "—");
+
+        // Primary actor
+        const pSpan = document.createElement("span");
+        pSpan.className = "actor-pill " + (s.primary_actor === "attacker" ? "attacker" : "human");
+        pSpan.textContent = s.primary_actor || "—";
+        cellNode(pSpan);
+
+        // Attempts
+        cellText(String(s.total_attempts ?? 0));
+
+        // Human / Attacker split
+        cellText(`${s.human_attempts ?? 0} / ${s.attacker_attempts ?? 0}`);
+
+        // Successes
+        cellText(`${s.total_successes ?? 0}`);
+
+        // Avg risk
+        const rk = riskPill(s.avg_risk);
+        const rkSpan = document.createElement("span");
+        rkSpan.className = "risk-pill " + rk.cls;
+        rkSpan.textContent = rk.label;
+        cellNode(rkSpan);
+
+        // Max risk
+        const mx = riskPill(s.max_risk);
+        const mxSpan = document.createElement("span");
+        mxSpan.className = "risk-pill " + mx.cls;
+        mxSpan.textContent = mx.label;
+        cellNode(mxSpan);
+
+        // Avg time
+        cellText(fmt(s.avg_solve_time, 2));
+
+        // Last seen
+        cellText(s.last_seen_iso || "—");
+
+        // Latest attempt
+        if (s.latest_attempt) {
+          const la = s.latest_attempt;
+          const laSpan = document.createElement("span");
+          laSpan.className = "result-pill " + (la.correct ? "ok" : "bad");
+          laSpan.textContent = `${la.actor || "?"} · ${la.type || "?"} · ${la.correct ? "OK" : "×"}`;
+          cellNode(laSpan);
+        } else {
+          cellText("—");
+        }
+
+        tbody.appendChild(tr);
+      }
+
+      status.textContent = `Loaded ${sessions.length} session(s).`;
+    } catch (e) {
+      console.error("Session monitor error:", e);
+      status.textContent = "Error: " + (e.message || "Could not load.");
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Wire up buttons + initial load
+  // ---------------------------------------------------------------
+
+  const btnBeh = g("refresh-behaviour");
+  if (btnBeh) btnBeh.addEventListener("click", refreshBehaviour);
+
+  const selActor = g("beh-filter-actor");
+  if (selActor) selActor.addEventListener("change", refreshBehaviour);
+
+  const selType = g("beh-filter-type");
+  if (selType) selType.addEventListener("change", refreshBehaviour);
+
+  const btnSes = g("refresh-sessions");
+  if (btnSes) btnSes.addEventListener("click", refreshSessions);
+
+  if (page === "behaviour") refreshBehaviour();
+  if (page === "sessions") refreshSessions();
+})();
+</script>
+</body>
 </html>

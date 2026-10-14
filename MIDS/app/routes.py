@@ -44,6 +44,7 @@ from .generator.text import (
     to_png_bytes as text_to_png_bytes,
 )
 from .sessions import client_ip_hash
+from .analysis import risk_score, band
 
 bp = Blueprint("main", __name__)
 
@@ -530,24 +531,22 @@ def new_challenge():
         # PUZZLE
         # ==============================================================
 
+        # PUZZLE
         elif challenge_type == "puzzle":
             params = PuzzleParams(
-                difficulty=data.get(
-                    "difficulty",
-                    3,
-                )
+                difficulty=data.get("difficulty", 3)
             )
 
             answer, img = generate_puzzle(params)
-
             params_dict = params.as_dict()
-
             png_bytes = puzzle_to_png_bytes(img)
 
-            # Do not expose correct_order.
+            # Send the shuffled layout to the client so it can render tiles
+            # in the SAME visual positions as the issued image.
             public_answer = {
                 "rows": answer["rows"],
                 "cols": answer["cols"],
+                "shuffled_order": answer["shuffled_order"],
             }
 
         # ==============================================================
@@ -682,23 +681,30 @@ def verify():
 
     
     
-    # Clean telemetry
+        # Clean telemetry
     beh = _clean_behaviour(data.get("behaviour"))
 
     # Give the risk scorer the correct context.
     beh["actor"] = actor
     beh["challenge_type"] = challenge["type"]
 
-    
+    # Attacker-specific solver metadata must survive cleanup.
     if actor == "attacker":
-        beh["solver_elapsed_ms"] = min(
-            max(float(data.get("solver_elapsed_ms") or 0), 0),
-            600000,
-        )
-        beh["solver_events_count"] = min(
-            max(int(data.get("solver_events_count") or 0), 0),
-            10000,
-        )
+        try:
+            elapsed = float(data.get("solver_elapsed_ms", 0))
+            if not math.isfinite(elapsed):
+                elapsed = 0
+        except (TypeError, ValueError):
+            elapsed = 0
+
+        try:
+            events_count = int(data.get("solver_events_count", 0))
+        except (TypeError, ValueError):
+            events_count = 0
+
+        beh["solver_elapsed_ms"] = min(max(elapsed, 0), 600000)
+        beh["solver_events_count"] = min(max(events_count, 0), 10000)
+
 
     conn = get_db()
 
@@ -772,14 +778,21 @@ def verify():
         ip_new_sessions,
         answer_len=answer_len,
         issued_last_min=issued_last_min,
-        user_agent=request.headers.get(
-            "User-Agent",
-            "",
-        ),
+        user_agent=request.headers.get("User-Agent","",),
+        correct=correct
     )
 
     beh["reasons"] = reasons
-
+    current_app.logger.info(
+        "Risk debug | actor=%s type=%s solve_time=%.2f "
+        "behaviour=%s risk=%r reasons=%r",
+        actor,
+        challenge["type"],
+        solve_time,
+        json.dumps(beh),
+        risk,
+        reasons,
+    )
     # --------------------------------------------------------------
     # Save attempt
     # --------------------------------------------------------------
@@ -829,10 +842,13 @@ def verify():
     conn.commit()
 
     return jsonify(
-        correct=correct,
-        solve_time=solve_time,
-        challenge_type=challenge["type"],
-    )
+    correct=correct,
+    solve_time=solve_time,
+    challenge_type=challenge["type"],
+    risk=risk,
+    risk_band=band(risk),
+    reasons=reasons,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -1105,7 +1121,10 @@ def experiment_report():
 
     experiment_id = request.args.get("experiment_id")
 
-    query = """
+    # Per-attempt risk is stored already; report shows:
+    #   - avg_risk: average of per-attempt risk (recent behaviour)
+    #   - latest_risk: risk of the most recent attempt per (actor, type)
+    base_query = """
         SELECT
             actor,
             challenge_type,
@@ -1121,17 +1140,466 @@ def experiment_report():
         FROM attempts
     """
 
-    params = ()
+    params = []
 
     if experiment_id:
-        query += " WHERE experiment_id = ?"
-        params = (experiment_id,)
+        base_query += " WHERE experiment_id = ? AND ts > ?"
+        params.append(experiment_id)
+        params.append(time.time() - 86400)  # last 24 hours
+    else:
+        base_query += " WHERE ts > ?"
+        params.append(time.time() - 86400)
 
-    query += " GROUP BY actor, challenge_type ORDER BY actor, challenge_type"
+    base_query += " GROUP BY actor, challenge_type ORDER BY actor, challenge_type"
 
-    rows = conn.execute(query, params).fetchall()
+    rows = conn.execute(base_query, params).fetchall()
+
+    report = []
+
+    for row in rows:
+        entry = dict(row)
+
+        # Latest attempt risk for this (actor, challenge_type) pair.
+        latest_query = """
+            SELECT risk, ts, solve_time, correct
+            FROM attempts
+            WHERE actor = ? AND challenge_type = ?
+        """
+        latest_params = [row["actor"], row["challenge_type"]]
+
+        if experiment_id:
+            latest_query += " AND experiment_id = ?"
+            latest_params.append(experiment_id)
+
+        latest_query += " ORDER BY ts DESC LIMIT 1"
+
+        latest = conn.execute(latest_query, latest_params).fetchone()
+
+        if latest:
+            entry["latest_risk"] = latest["risk"]
+            entry["latest_ts"] = latest["ts"]
+            entry["latest_correct"] = bool(latest["correct"])
+        else:
+            entry["latest_risk"] = None
+            entry["latest_ts"] = None
+            entry["latest_correct"] = None
+
+        report.append(entry)
 
     return jsonify({
         "experiment_id": experiment_id,
-        "report": [dict(row) for row in rows],
+        "report": report,
+    })
+
+@bp.route("/report")
+def report_page():
+    return render_template("index.html", page_mode="report")
+
+@bp.route("/evaluation")
+def evaluation_page():
+    return render_template("index.html", page_mode="evaluation")
+
+@bp.get("/api/experiment/attempts")
+def experiment_attempts():
+    """
+    Per-attempt detail for an experiment.
+
+    Returns one row per solve attempt (no grouping), so the report can show
+    each human and attacker attempt separately.
+
+    Query params:
+        experiment_id: optional filter
+        limit:         optional, default 100, max 500
+    """
+    conn = get_db()
+
+    experiment_id = request.args.get("experiment_id")
+
+    try:
+        limit = int(request.args.get("limit", 100))
+    except (TypeError, ValueError):
+        limit = 100
+    limit = max(1, min(limit, 500))
+
+    query = """
+        SELECT
+            id,
+            ts,
+            actor,
+            challenge_type,
+            correct,
+            fail_reason,
+            solve_time,
+            risk,
+            behaviour,
+            experiment_id
+        FROM attempts
+    """
+
+    params = []
+
+    if experiment_id:
+        query += " WHERE experiment_id = ?"
+        params.append(experiment_id)
+
+    query += " ORDER BY ts DESC LIMIT ?"
+    params.append(limit)
+
+    rows = conn.execute(query, params).fetchall()
+
+    attempts = []
+
+    for row in rows:
+        entry = dict(row)
+
+        # Attempts are stored with unix timestamp; convert to ISO-ish string
+        # for readability on the frontend.
+        ts = entry.get("ts")
+        if ts is not None:
+            try:
+                import datetime
+                entry["ts_iso"] = datetime.datetime.fromtimestamp(
+                    float(ts)
+                ).strftime("%Y-%m-%d %H:%M:%S")
+            except (TypeError, ValueError, OSError):
+                entry["ts_iso"] = str(ts)
+        else:
+            entry["ts_iso"] = None
+
+        # Parse behaviour JSON so frontend can inspect telemetry if needed.
+        raw_beh = entry.get("behaviour")
+        if raw_beh:
+            try:
+                entry["behaviour"] = json.loads(raw_beh)
+            except (TypeError, json.JSONDecodeError):
+                entry["behaviour"] = {}
+        else:
+            entry["behaviour"] = {}
+
+        # Convert 0/1 to bool for JS.
+        entry["correct"] = bool(entry.get("correct"))
+
+        attempts.append(entry)
+
+    # Also include a small summary so the UI can show totals at a glance.
+    summary = {}
+
+    if experiment_id:
+        summary_query = """
+            SELECT
+                actor,
+                challenge_type,
+                COUNT(*) AS total_attempts,
+                COALESCE(SUM(correct), 0) AS successes,
+                ROUND(AVG(solve_time), 2) AS avg_solve_time,
+                ROUND(AVG(risk), 3) AS avg_risk
+            FROM attempts
+            WHERE experiment_id = ?
+            GROUP BY actor, challenge_type
+            ORDER BY actor, challenge_type
+        """
+        summary_rows = conn.execute(summary_query, (experiment_id,)).fetchall()
+    else:
+        summary_query = """
+            SELECT
+                actor,
+                challenge_type,
+                COUNT(*) AS total_attempts,
+                COALESCE(SUM(correct), 0) AS successes,
+                ROUND(AVG(solve_time), 2) AS avg_solve_time,
+                ROUND(AVG(risk), 3) AS avg_risk
+            FROM attempts
+            GROUP BY actor, challenge_type
+            ORDER BY actor, challenge_type
+        """
+        summary_rows = conn.execute(summary_query).fetchall()
+
+    for row in summary_rows:
+        key = f"{row['actor']}|{row['challenge_type']}"
+        summary[key] = dict(row)
+
+    return jsonify({
+        "experiment_id": experiment_id,
+        "count": len(attempts),
+        "attempts": attempts,
+        "summary": summary,
+    })
+# ---------------------------------------------------------------------------
+# Behaviour monitoring page
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/behaviour")
+def behaviour_page():
+    return render_template("index.html", page_mode="behaviour")
+
+
+@bp.get("/api/monitor/behaviour")
+def monitor_behaviour():
+    """
+    Live behaviour monitoring.
+
+    Returns the most recent attempts (across all sessions) with
+    full behavioural telemetry, so the dashboard can show how the
+    current experiment is behaving right now.
+
+    Query params:
+        limit:   optional, default 50, max 300
+        actor:   optional, "human" or "attacker"
+        type:    optional, "text" / "image" / "puzzle"
+    """
+    conn = get_db()
+
+    try:
+        limit = int(request.args.get("limit", 50))
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(limit, 300))
+
+    actor_filter = request.args.get("actor")
+    type_filter = request.args.get("type")
+
+    query = """
+        SELECT
+            a.id,
+            a.ts,
+            a.actor,
+            a.challenge_type,
+            a.correct,
+            a.fail_reason,
+            a.solve_time,
+            a.risk,
+            a.behaviour,
+            a.session_id,
+            v.ip AS session_ip,
+            v.user_agent AS session_user_agent
+        FROM attempts a
+        LEFT JOIN visitor_sessions v
+            ON v.id = a.session_id
+        WHERE 1 = 1
+    """
+
+    params = []
+
+    if actor_filter in {"human", "attacker"}:
+        query += " AND a.actor = ?"
+        params.append(actor_filter)
+
+    if type_filter in {"text", "image", "puzzle"}:
+        query += " AND a.challenge_type = ?"
+        params.append(type_filter)
+
+    query += " ORDER BY a.ts DESC LIMIT ?"
+    params.append(limit)
+
+    rows = conn.execute(query, params).fetchall()
+
+    import datetime
+
+    attempts = []
+
+    for row in rows:
+        entry = dict(row)
+
+        ts = entry.get("ts")
+        if ts is not None:
+            try:
+                entry["ts_iso"] = datetime.datetime.fromtimestamp(
+                    float(ts)
+                ).strftime("%Y-%m-%d %H:%M:%S")
+            except (TypeError, ValueError, OSError):
+                entry["ts_iso"] = str(ts)
+        else:
+            entry["ts_iso"] = None
+
+        raw_beh = entry.get("behaviour")
+        if raw_beh:
+            try:
+                entry["behaviour"] = json.loads(raw_beh)
+            except (TypeError, json.JSONDecodeError):
+                entry["behaviour"] = {}
+        else:
+            entry["behaviour"] = {}
+
+        entry["correct"] = bool(entry.get("correct"))
+
+        attempts.append(entry)
+
+    # Roll-up summary across the returned slice.
+    total = len(attempts)
+    humans = [a for a in attempts if a["actor"] == "human"]
+    attackers = [a for a in attempts if a["actor"] == "attacker"]
+
+    def _avg(values):
+        clean = [v for v in values if v is not None]
+        return round(sum(clean) / len(clean), 3) if clean else None
+
+    summary = {
+        "total": total,
+        "human_count": len(humans),
+        "attacker_count": len(attackers),
+        "human_avg_risk": _avg([a["risk"] for a in humans]),
+        "attacker_avg_risk": _avg([a["risk"] for a in attackers]),
+        "human_avg_time": _avg([a["solve_time"] for a in humans]),
+        "attacker_avg_time": _avg([a["solve_time"] for a in attackers]),
+        "human_success_rate": (
+            round(100.0 * sum(1 for a in humans if a["correct"]) / len(humans), 1)
+            if humans else None
+        ),
+        "attacker_success_rate": (
+            round(100.0 * sum(1 for a in attackers if a["correct"]) / len(attackers), 1)
+            if attackers else None
+        ),
+    }
+
+    return jsonify({
+        "count": total,
+        "summary": summary,
+        "attempts": attempts,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Session monitoring page
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/sessions")
+def sessions_page():
+    return render_template("index.html", page_mode="sessions")
+
+
+@bp.get("/api/monitor/sessions")
+def monitor_sessions():
+    """
+    Session-level monitoring.
+
+    Returns per-session roll-ups: IP hash, user agent, attempt counts,
+    average risk, latest attempt, and a per-actor breakdown.
+
+    Query params:
+        limit: optional, default 30, max 200
+    """
+    conn = get_db()
+
+    try:
+        limit = int(request.args.get("limit", 30))
+    except (TypeError, ValueError):
+        limit = 30
+    limit = max(1, min(limit, 200))
+
+    rows = conn.execute(
+        """
+        SELECT
+            v.id,
+            v.ip,
+            v.user_agent,
+            v.created_at,
+            v.last_seen,
+            v.label,
+
+            COUNT(a.id) AS total_attempts,
+            COALESCE(SUM(a.correct), 0) AS total_successes,
+            ROUND(AVG(a.risk), 3) AS avg_risk,
+            ROUND(MAX(a.risk), 3) AS max_risk,
+            ROUND(AVG(a.solve_time), 2) AS avg_solve_time,
+
+            COALESCE(SUM(CASE WHEN a.actor = 'human' THEN 1 ELSE 0 END), 0) AS human_attempts,
+            COALESCE(SUM(CASE WHEN a.actor = 'attacker' THEN 1 ELSE 0 END), 0) AS attacker_attempts,
+
+            COALESCE(SUM(CASE WHEN a.actor = 'human' AND a.correct = 1 THEN 1 ELSE 0 END), 0) AS human_successes,
+            COALESCE(SUM(CASE WHEN a.actor = 'attacker' AND a.correct = 1 THEN 1 ELSE 0 END), 0) AS attacker_successes
+
+        FROM visitor_sessions v
+        LEFT JOIN attempts a
+            ON a.session_id = v.id
+        GROUP BY v.id
+        ORDER BY v.last_seen DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+
+    import datetime
+
+    sessions = []
+
+    for row in rows:
+        entry = dict(row)
+
+        # ISO timestamps for readability.
+        for ts_key in ("created_at", "last_seen"):
+            ts = entry.get(ts_key)
+            if ts is not None:
+                try:
+                    entry[ts_key + "_iso"] = datetime.datetime.fromtimestamp(
+                        float(ts)
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                except (TypeError, ValueError, OSError):
+                    entry[ts_key + "_iso"] = str(ts)
+            else:
+                entry[ts_key + "_iso"] = None
+
+        # Latest attempt for this session.
+        latest = conn.execute(
+            """
+            SELECT
+                id, challenge_type, actor, correct,
+                solve_time, risk, ts
+            FROM attempts
+            WHERE session_id = ?
+            ORDER BY ts DESC
+            LIMIT 1
+            """,
+            (row["id"],),
+        ).fetchone()
+
+        if latest:
+            entry["latest_attempt"] = {
+                "id": latest["id"],
+                "type": latest["challenge_type"],
+                "actor": latest["actor"],
+                "correct": bool(latest["correct"]),
+                "solve_time": latest["solve_time"],
+                "risk": latest["risk"],
+                "ts": latest["ts"],
+            }
+        else:
+            entry["latest_attempt"] = None
+
+        # Best-effort "primary actor" label.
+        if entry["attacker_attempts"] > entry["human_attempts"]:
+            entry["primary_actor"] = "attacker"
+        elif entry["human_attempts"] > entry["attacker_attempts"]:
+            entry["primary_actor"] = "human"
+        elif entry["total_attempts"] > 0:
+            entry["primary_actor"] = "mixed"
+        else:
+            entry["primary_actor"] = "unknown"
+
+        sessions.append(entry)
+
+    # Overall summary across returned sessions.
+    total_sessions = len(sessions)
+    sessions_with_attempts = [s for s in sessions if s["total_attempts"]]
+    avg_risk_all = (
+        round(
+            sum(s["avg_risk"] for s in sessions_with_attempts if s["avg_risk"] is not None)
+            / max(1, len([s for s in sessions_with_attempts if s["avg_risk"] is not None])),
+            3,
+        )
+        if sessions_with_attempts else None
+    )
+
+    summary = {
+        "total_sessions": total_sessions,
+        "sessions_with_attempts": len(sessions_with_attempts),
+        "total_attempts": sum(s["total_attempts"] for s in sessions),
+        "avg_risk": avg_risk_all,
+    }
+
+    return jsonify({
+        "count": total_sessions,
+        "summary": summary,
+        "sessions": sessions,
     })
