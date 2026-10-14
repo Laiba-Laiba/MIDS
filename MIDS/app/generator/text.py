@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ALPHABET = "ACDEFGHJKMNPQRTUVWXYZ234679"  # no look-alikes (0/O, 1/I)
-SIZE = (220, 90)
+SIZE = (440, 260)
 
 
 def _clamp(v):

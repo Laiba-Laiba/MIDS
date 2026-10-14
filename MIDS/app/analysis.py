@@ -166,8 +166,8 @@ def risk_score(
             flag("solver_failed", "backend solver answer failed verification")
 
         # Attacker always gets a baseline bump so human vs attacker stays separated.
-        if score < 0.30:
-            score = 0.30
+        if score < 0.60:
+            score = 0.60
             reasons.append("actor marked as attacker (baseline risk)")
 
     # ---------------------------------------------------------
