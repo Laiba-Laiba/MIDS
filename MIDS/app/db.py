@@ -185,7 +185,7 @@ def init_app(app):
         # 5. Indexes (columns ab pakka maujood hain).
         conn.executescript(INDEXES)
 
-        
+
 # 6. Human-vs-Attacker experiment columns.
         _ensure_column(
             conn, "attempts", "actor",

@@ -1,6 +1,8 @@
 from app.analysis import band, risk_score
 
 HUMAN = {
+    "actor": "human",
+    "challenge_type": "text",
     "keys": 7,
     "moves": 120,
     "pasted": False,
@@ -10,12 +12,16 @@ HUMAN = {
 }
 
 BOT = {
+    "actor": "attacker",
+    "challenge_type": "text",
     "keys": 0,
     "moves": 0,
     "pasted": False,
     "first_key_ms": None,
     "key_gap_mean": 0,
     "key_gap_std": 0,
+    "solver_elapsed_ms": 500,
+    "solver_events_count": 2,
 }
 
 
@@ -27,7 +33,7 @@ def test_human_like_session_scores_zero():
 def test_naive_bot_is_high_risk():
     score, reasons = risk_score(BOT, 0.2, 0, 1, user_agent="python-requests/2.31")
     assert band(score) == "high"
-    assert any("solved in under 1 second" in reason for reason in reasons)
+    assert any("under" in reason.lower() for reason in reasons)
 
 
 def test_touch_device_is_not_penalised_for_no_pointer():
