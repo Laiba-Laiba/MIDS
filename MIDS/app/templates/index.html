@@ -1,0 +1,3053 @@
+<!doctype html>
+{% set pm = page_mode|default('generator') %}
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform 9¾ — CAPTCHA Lab</title>
+<style>
+:root{
+  --bg:#e3e8f1; --panel:#f7f9fc; --panel2:#eef2f8;
+  --ink:#1f2a44; --muted:#58657f; --line:#c5cee0;
+  --side:#2f4468; --side-ink:#dbe4f5; --side-hover:#3d5580;
+  --accent:#2a8c9a; --accent-ink:#fff;
+  --accent-2:#7c5cff;
+  --danger:#c4503f; --ok:#2f8f62; --warn:#cf9528;
+  --glow:rgba(42,140,154,.45);
+  --glow-2:rgba(124,92,255,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:
+  radial-gradient(1200px 600px at 10% -10%, rgba(124,92,255,.14), transparent 60%),
+  radial-gradient(900px 500px at 100% 0%, rgba(42,140,154,.16), transparent 55%),
+  var(--bg);
+  color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif;
+  min-height:100vh;
+}
+h1{font-size:1.5rem;margin:0 0 4px;letter-spacing:-.01em;
+   background:linear-gradient(90deg,var(--ink),var(--accent),var(--accent-2));
+   -webkit-background-clip:text;background-clip:text;color:transparent;}
+h2{font-size:1.02rem;margin:0 0 14px}
+h3{font-size:.95rem;margin:16px 0 0}
+.lede{color:var(--muted);margin:0 0 20px;max-width:80ch}
+
+/* ---------- shell ---------- */
+.topbar{position:sticky;top:0;z-index:20;height:58px;display:flex;align-items:center;gap:14px;padding:0 20px;
+  background:linear-gradient(180deg,rgba(247,249,252,.95),rgba(247,249,252,.82));
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 6px 22px -14px rgba(31,42,68,.35), 0 0 0 1px rgba(255,255,255,.4) inset;
+}
+.burger{display:none;padding:6px 10px;background:transparent;color:var(--ink);border:1px solid var(--line);
+  border-radius:8px;transition:.2s}
+.burger:hover{background:var(--panel2);box-shadow:0 0 0 3px var(--glow)}
+.brand{font-weight:800;font-size:1.15rem;display:flex;align-items:center;gap:10px;
+  letter-spacing:.01em;
+  background:linear-gradient(90deg,var(--side),var(--accent),var(--accent-2));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.brand i{width:28px;height:28px;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:inline-block;position:relative;
+  box-shadow:0 0 0 3px rgba(42,140,154,.18), 0 0 18px var(--glow);
+  animation:brandPulse 3.2s ease-in-out infinite;
+}
+@keyframes brandPulse{
+  0%,100%{box-shadow:0 0 0 3px rgba(42,140,154,.18), 0 0 14px var(--glow)}
+  50%{box-shadow:0 0 0 5px rgba(124,92,255,.20), 0 0 26px var(--glow-2)}
+}
+.brand i::after{content:"";position:absolute;inset:7px;border:2px solid #fff;border-radius:3px}
+.topbar .spacer{flex:1}
+.chip{padding:4px 12px;border:1px solid var(--line);border-radius:999px;
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  color:var(--muted);font-size:.85rem;
+  transition:.25s;
+  box-shadow:0 1px 0 #fff inset;
+}
+.chip:hover{color:var(--ink);border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.chip b{color:var(--ink)}
+.shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:calc(100vh - 58px)}
+.sidebar{background:linear-gradient(180deg,var(--side),#263858);
+  padding:20px 12px;position:sticky;top:58px;height:calc(100vh - 58px);overflow-y:auto;
+  box-shadow:inset -1px 0 0 rgba(255,255,255,.06), 6px 0 22px -18px rgba(0,0,0,.6);
+}
+.sidebar p{color:#97a8c9;font-size:.8rem;margin:0 10px 8px;text-transform:uppercase;letter-spacing:.14em}
+.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:4px;border-radius:8px;
+  color:var(--side-ink);text-decoration:none;font-weight:600;
+  transition:background .2s, transform .15s, box-shadow .2s, color .2s;
+  position:relative;
+}
+.sidebar a:hover{background:var(--side-hover);transform:translateX(3px);
+  box-shadow:0 6px 18px -12px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.06) inset}
+.sidebar a:hover svg{filter:drop-shadow(0 0 6px rgba(255,255,255,.55))}
+.sidebar a.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--accent-ink);
+  box-shadow:0 8px 22px -12px var(--glow-2), 0 0 0 1px rgba(255,255,255,.15) inset}
+.sidebar a.active::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:3px;
+  background:#fff;box-shadow:0 0 12px #fff}
+.sidebar svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:filter .2s}
+.content{padding:24px 28px 48px;min-width:0;width:100%}
+
+/* ---------- page switching ---------- */
+body:not(.generator) .only-gen,
+body:not(.attacker) .only-att,
+body:not(.report) .only-rep,
+body:not(.evaluation) .only-eval,
+body:not(.behaviour) .only-beh,
+body:not(.sessions) .only-ses{display:none!important}
+body:not(.verification) .only-ver{display:none!important}
+body.verification .workspace{display:none!important}
+body.report .workspace,
+body.evaluation .workspace,
+body.behaviour .workspace,
+body.sessions .workspace,
+body.competitors .workspace{display:none!important}
+body:not(.competitors) .only-comp{display:none!important}
+.hidden{display:none!important}
+
+/* ---------- cards / layout ---------- */
+.card{background:linear-gradient(180deg,var(--panel),#f1f5fb);
+  border:1px solid var(--line);border-radius:14px;padding:20px;
+  box-shadow:0 10px 30px -22px rgba(31,42,68,.55), 0 1px 0 #fff inset;
+  transition:box-shadow .25s, transform .25s, border-color .25s;
+}
+.card:hover{border-color:rgba(42,140,154,.45);
+  box-shadow:0 18px 40px -22px rgba(31,42,68,.55), 0 0 0 1px var(--glow), 0 1px 0 #fff inset}
+.workspace{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:20px;align-items:start}
+.workspace > .main-card{grid-column:1;grid-row:1}
+.workspace > .settings-card{grid-column:2;grid-row:1}
+
+.mode-selector{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.mode-button{background:linear-gradient(180deg,var(--panel),var(--panel2));
+  color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 18px;
+  transition:.22s;position:relative;overflow:hidden;
+}
+.mode-button:hover{transform:translateY(-2px);
+  border-color:var(--accent);
+  box-shadow:0 10px 22px -14px var(--glow), 0 0 0 3px var(--glow)}
+.mode-button.active{background:linear-gradient(135deg,var(--side),var(--accent));color:#fff;border-color:transparent;
+  box-shadow:0 12px 26px -14px var(--glow-2), 0 0 0 3px rgba(42,140,154,.22)}
+
+.instruction{color:var(--muted);margin:0 0 12px;font-weight:600}
+.shot,.attacker-image{display:block;width:100%;max-width:560px;min-height:180px;object-fit:contain;
+  border:1px solid var(--line);border-radius:10px;background:#fff;
+  box-shadow:0 12px 28px -20px rgba(31,42,68,.6);
+  transition:box-shadow .25s, border-color .25s}
+.shot:hover,.attacker-image:hover{border-color:var(--accent);box-shadow:0 18px 34px -20px var(--glow)}
+.shot.image-selectable{cursor:crosshair}
+.row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+input[type=text]{flex:1;min-width:140px;font:600 1.25rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:.2em;
+  text-transform:uppercase;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);
+  transition:box-shadow .2s, border-color .2s, transform .15s}
+input[type=text]:hover{border-color:rgba(42,140,154,.5)}
+input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--glow), 0 4px 14px -8px var(--glow)}
+button{font:inherit;font-weight:700;padding:10px 18px;border-radius:9px;border:1px solid transparent;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;cursor:pointer;
+  position:relative;overflow:hidden;
+  transition:transform .15s, box-shadow .25s, filter .2s;
+  box-shadow:0 10px 22px -14px var(--glow-2), 0 1px 0 rgba(255,255,255,.25) inset;
+}
+button::before{content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);
+  transform:skewX(-20deg);transition:left .5s ease}
+button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08);
+  box-shadow:0 18px 30px -14px var(--glow-2), 0 0 0 3px rgba(124,92,255,.22), 0 1px 0 rgba(255,255,255,.3) inset}
+button:hover:not(:disabled)::before{left:130%}
+button:active:not(:disabled){transform:translateY(0) scale(.98)}
+button.ghost{background:linear-gradient(180deg,var(--panel),var(--panel2));color:var(--ink);border-color:var(--line)}
+button.ghost:hover:not(:disabled){border-color:var(--accent);color:var(--ink);
+  box-shadow:0 14px 26px -16px var(--glow), 0 0 0 3px var(--glow)}
+button:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.3)}
+:is(button,input,select,a):focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.msg{min-height:1.5em;margin-top:12px;font-weight:700}
+.msg.ok{color:var(--ok);text-shadow:0 0 12px rgba(47,143,98,.25)}
+.msg.bad{color:var(--danger);text-shadow:0 0 12px rgba(196,80,63,.2)}
+.tally{color:var(--muted);font-size:.9rem;margin-top:8px}
+.task-box{margin:12px 0 0}
+
+.knob{margin-bottom:18px}
+.knob label{display:flex;justify-content:space-between;font-weight:700}
+.knob small{display:block;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+input[type=range]:hover{filter:drop-shadow(0 0 6px var(--glow))}
+
+#puzzle-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;width:100%;max-width:560px;margin-top:12px}
+.puzzle-tile{position:relative;aspect-ratio:1/1;border:2px solid var(--line);border-radius:8px;
+  background-repeat:no-repeat;cursor:grab;user-select:none;touch-action:none;
+  transition:border-color .2s, transform .15s, box-shadow .25s}
+.puzzle-tile:hover{border-color:var(--accent);transform:scale(1.015);
+  box-shadow:0 10px 22px -14px var(--glow), 0 0 0 3px var(--glow)}
+.puzzle-tile:active{cursor:grabbing}
+.puzzle-tile.dragging{opacity:.45;border-color:var(--accent-2);box-shadow:0 0 0 3px var(--glow-2)}
+.puzzle-tile-number{position:absolute;top:5px;left:5px;min-width:24px;height:24px;padding:2px 6px;border-radius:12px;
+  background:linear-gradient(135deg,rgba(47,68,104,.9),rgba(42,140,154,.9));color:#fff;font-size:.8rem;text-align:center;line-height:20px;
+  box-shadow:0 4px 10px -6px rgba(0,0,0,.6)}
+
+/* attacker */
+.attacker-controls{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.attacker-controls select{flex:1;min-width:140px;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;color:var(--ink);transition:box-shadow .2s, border-color .2s}
+.attacker-controls select:hover{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.attacker-controls select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--glow)}
+.status-line{font-weight:700;margin:10px 0}
+.activity-log{list-style:none;padding:0;margin:12px 0 0;max-height:260px;overflow-y:auto}
+.activity-log li{padding:8px 10px;margin-bottom:6px;border-left:3px solid var(--line);background:var(--panel2);
+  overflow-wrap:anywhere;font-size:.9rem;border-radius:0 8px 8px 0;
+  transition:background .2s, border-color .2s, transform .15s}
+.activity-log li:hover{transform:translateX(3px);background:#e6ecf5;border-left-color:var(--accent)}
+.activity-log li.success{border-left-color:var(--ok);background:linear-gradient(90deg,rgba(47,143,98,.1),var(--panel2))}
+.activity-log li.failure{border-left-color:var(--danger);background:linear-gradient(90deg,rgba(196,80,63,.1),var(--panel2))}
+
+/* report + evaluation */
+.table-wrap{overflow-x:auto;border-radius:10px}
+.report-table{width:100%;border-collapse:collapse;font-size:.92rem}
+.report-table th,.report-table td{padding:10px 10px;text-align:left;border-bottom:1px solid var(--line)}
+.report-table th{color:var(--muted);white-space:nowrap;
+  background:linear-gradient(180deg,var(--panel2),#e7edf6);
+  position:sticky;top:0}
+.report-table tbody tr{transition:background .2s, box-shadow .2s}
+.report-table tbody tr:hover{background:rgba(42,140,154,.07);
+  box-shadow:inset 3px 0 0 var(--accent)}
+.report-table td:first-child{font-weight:700;text-transform:capitalize}
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.toolbar .status-line{margin:0}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:16px 0 20px}
+.stat{background:linear-gradient(180deg,var(--panel),#eef3fa);border:1px solid var(--line);border-radius:14px;padding:16px;
+  border-top:4px solid var(--accent);
+  box-shadow:0 10px 26px -20px rgba(31,42,68,.6);
+  transition:transform .2s, box-shadow .25s, border-color .25s}
+.stat:hover{transform:translateY(-3px);
+  box-shadow:0 20px 34px -20px rgba(31,42,68,.55), 0 0 0 3px var(--glow)}
+.stat.bad{border-top-color:var(--danger)} .stat.warn{border-top-color:var(--warn)}
+.stat.bad:hover{box-shadow:0 20px 34px -20px rgba(196,80,63,.5), 0 0 0 3px rgba(196,80,63,.28)}
+.stat.warn:hover{box-shadow:0 20px 34px -20px rgba(207,149,40,.5), 0 0 0 3px rgba(207,149,40,.28)}
+.stat small{color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem}
+.stat strong{display:block;font-size:1.7rem;line-height:1.2;margin:4px 0}
+.stat span{color:var(--muted);font-size:.85rem}
+.bar{height:8px;background:var(--line);border-radius:4px;margin-top:10px;overflow:hidden}
+.bar div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  transition:width .6s ease;box-shadow:0 0 10px var(--glow)}
+.stat.bad .bar div{background:linear-gradient(90deg,var(--danger),#e07a63);box-shadow:0 0 10px rgba(196,80,63,.5)}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-weight:800;font-size:.8rem;background:var(--line);color:var(--ink)}
+.badge.ok{background:#cdeadb;color:#1d5e3f;box-shadow:0 0 0 1px rgba(47,143,98,.3)}
+.badge.warn{background:#f6e3b8;color:#7a5410;box-shadow:0 0 0 1px rgba(207,149,40,.3)}
+.badge.bad{background:#f3cdc6;color:#8a2b1e;box-shadow:0 0 0 1px rgba(196,80,63,.3)}
+.note{color:var(--muted);font-size:.88rem;margin-top:14px}
+
+@media (max-width:960px){
+  .workspace{grid-template-columns:minmax(0,1fr)}
+  .workspace > .main-card,.workspace > .settings-card{grid-column:1;grid-row:auto}
+}
+@media (max-width:860px){
+  .burger{display:inline-block}
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .sidebar{position:fixed;left:0;top:58px;width:240px;z-index:15;transform:translateX(-100%);transition:transform .2s}
+  body.nav-open .sidebar{transform:none}
+  .content{padding:18px 14px 40px}
+  .chip{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .sidebar{transition:none}
+  .brand i{animation:none}
+  button::before{display:none}
+  *{transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
+/* ---------- report view toggle ---------- */
+.report-view-toggle{
+  display:inline-flex;
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:3px;
+  gap:2px;
+  box-shadow:0 1px 0 #fff inset;
+}
+.report-view-toggle .view-btn{
+  background:transparent;
+  color:var(--muted);
+  border:none;
+  border-radius:999px;
+  padding:6px 16px;
+  font-weight:700;
+  font-size:.85rem;
+  cursor:pointer;
+  transition:background .2s, color .2s, box-shadow .2s;
+  box-shadow:none;
+}
+.report-view-toggle .view-btn:hover:not(.active){
+  color:var(--ink);
+  background:rgba(42,140,154,.08);
+}
+.report-view-toggle .view-btn.active{
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#fff;
+  box-shadow:0 6px 14px -8px var(--glow-2);
+}
+.report-view-toggle .view-btn::before{display:none}
+
+/* Risk pill for per-attempt table */
+.risk-pill{
+  display:inline-block;
+  padding:2px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:.8rem;
+  letter-spacing:.02em;
+}
+.risk-pill.low    { background:#cdeadb; color:#1d5e3f; }
+.risk-pill.medium { background:#f6e3b8; color:#7a5410; }
+.risk-pill.high   { background:#f3cdc6; color:#8a2b1e; }
+
+.actor-pill{
+  display:inline-block;
+  padding:2px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:.8rem;
+}
+.actor-pill.human    { background:#dde7ff; color:#2c3f7a; }
+.actor-pill.attacker { background:#f3cdc6; color:#8a2b1e; }
+
+.result-pill{
+  display:inline-block;
+  padding:2px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:.8rem;
+}
+.result-pill.ok  { background:#cdeadb; color:#1d5e3f; }
+.result-pill.bad { background:#f3cdc6; color:#8a2b1e; }
+
+/* Behaviour page: allow full height rule lists */
+#beh-rules-human,
+#beh-rules-attacker{
+  max-height:none;
+  overflow:visible;
+}
+/* ---------- competitor comparison table ---------- */
+.competitor-table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  font-size:.88rem;
+  border-radius:12px;
+  overflow:hidden;
+  border:1px solid var(--line);
+  background:var(--panel);
+}
+.competitor-table thead th{
+  padding:12px 10px;
+  background:linear-gradient(180deg,var(--panel2),#e7edf6);
+  color:var(--muted);
+  font-weight:800;
+  font-size:.78rem;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  text-align:center;
+  border-bottom:2px solid var(--line);
+  position:relative;
+}
+.competitor-table thead th.feature-col{
+  text-align:left;
+  width:200px;
+  min-width:180px;
+  border-right:2px solid var(--line);
+}
+.competitor-table thead th.mids-col{
+  background:linear-gradient(180deg,#e6f4f6,#cfeaed);
+  color:var(--accent);
+  border-left:2px solid var(--accent);
+  border-right:2px solid var(--accent);
+}
+.competitor-table thead th.mids-col::after{
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;
+  height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  border-radius:0;
+}
+.mids-ribbon{
+  display:inline-block;
+  font-size:.62rem;
+  font-weight:800;
+  background:var(--accent);
+  color:#fff;
+  padding:2px 6px;
+  border-radius:6px;
+  margin-left:6px;
+  letter-spacing:.04em;
+  vertical-align:middle;
+}
+.competitor-table tbody td{
+  padding:11px 10px;
+  border-bottom:1px solid var(--line);
+  text-align:center;
+  font-weight:700;
+}
+.competitor-table tbody tr:last-child td{
+  border-bottom:none;
+}
+.competitor-table tbody td.feature-col{
+  text-align:left;
+  font-weight:700;
+  color:var(--ink);
+  background:linear-gradient(90deg,#f5f8fc,#eef3fa);
+  border-right:2px solid var(--line);
+}
+.competitor-table tbody td.mids-col{
+  background:linear-gradient(90deg,#eaf7f8,#ddf0f2);
+  border-left:2px solid var(--accent);
+  border-right:2px solid var(--accent);
+}
+.competitor-table tbody td.cell-on{
+  color:var(--ok);
+  font-size:1.05rem;
+}
+.competitor-table tbody td.cell-off{
+  color:#b8c0cf;
+  font-size:1.05rem;
+  font-weight:600;
+}
+.competitor-table tbody tr:hover td{
+  background:rgba(42,140,154,.05);
+}
+.competitor-table tbody tr:hover td.mids-col{
+  background:linear-gradient(90deg,#d9eff2,#cae5e8);
+}
+.competitor-table tbody tr:hover td.feature-col{
+  background:linear-gradient(90deg,#ecf2f9,#e3ebf5);
+}
+</style>
+</head>
+
+<body class="{{ pm }}">
+
+<header class="topbar">
+  <button type="button" class="burger" id="burger" aria-label="Toggle menu">Menu</button>
+  <div class="brand"><i></i>Platform 9¾</div>
+  <div class="spacer"></div>
+  <div class="chip">Experiment: <b>side_by_side_v1</b></div>
+</header>
+
+<div class="shell">
+
+<aside class="sidebar" aria-label="Main navigation">
+  <p>Pages</p>
+  <a href="/" class="{{ 'active' if pm == 'generator' else '' }}">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 15l3-3 3 3 2-2 3 3"/></svg>
+    CAPTCHA Generator
+  </a>
+  <a href="/attacker" class="{{ 'active' if pm == 'attacker' else '' }}">
+    <svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01M9 16h6"/></svg>
+    AI Attacker
+  </a>
+  <a href="/report" class="{{ 'active' if pm == 'report' else '' }}">
+    <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>
+    Report
+  </a>
+  <a href="/evaluation" class="{{ 'active' if pm == 'evaluation' else '' }}">
+    <svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+    Evaluation
+  </a>
+  <a href="/behaviour" class="{{ 'active' if pm == 'behaviour' else '' }}">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3"/></svg>
+    Behaviour Monitor
+  </a>
+  <a href="/sessions" class="{{ 'active' if pm == 'sessions' else '' }}">
+    <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="18" cy="18" r="3"/></svg>
+    Session Monitor
+  </a>
+  <a href="/competitors" class="{{ 'active' if pm == 'competitors' else '' }}">
+    <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l3-6 4 4 5-8"/></svg>
+    Competitor Analysis
+  </a>
+  <a href="/verification" class="{{ 'active' if pm == 'verification' else '' }}">
+    <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+    Verification
+  </a>
+</aside>
+
+<main class="content">
+
+  <!-- ===== page headings ===== -->
+  <div class="only-gen">
+    <h1>CAPTCHA Generator</h1>
+    <p class="lede">Select a challenge type and solve it. Behavioural telemetry is collected per challenge and the same session/risk monitoring layer is used across all three modes.</p>
+  </div>
+  <div class="only-att">
+    <h1>AI Attacker</h1>
+    <p class="lede">The local solver attempts a separately issued challenge. Use the difficulty panel to change how hard the challenge is.</p>
+  </div>
+  <div class="only-rep">
+    <h1>Human vs Attacker Report</h1>
+    <p class="lede">Per-attempt results for the experiment, with an optional summary view.</p>
+  </div>
+  <div class="only-eval">
+    <h1>Evaluation</h1>
+    <p class="lede">How well each CAPTCHA type holds up against the attacker, compared with how easily humans solve it. Calculated from the report data.</p>
+  </div>
+  <div class="only-comp">
+    <h1>Competitor Analysis</h1>
+    <p class="lede">How commercial CAPTCHA solutions and commercial bypass services compare against Platform 9¾.</p>
+  </div>
+  <div class="only-beh">
+    <h1>Behaviour Monitoring</h1>
+    <p class="lede">Raw behavioural telemetry from the DB, per attempt. Every rule that fired is shown for both human and attacker attempts.</p>
+  </div>
+  <div class="only-ses">
+    <h1>Session Monitoring</h1>
+    <p class="lede">Per-session roll-up: traffic, actors, average risk and latest activity.</p>
+  </div>
+  <div class="only-ver">
+    <h1>Verification Dashboard</h1>
+    <p class="lede">Automated checks that our CAPTCHA generation, solving, and risk scoring are working correctly.</p>
+  </div>
+
+  <!-- ===== mode selector (generator only) ===== -->
+  <div class="mode-selector only-gen">
+    <button type="button" class="mode-button active" data-type="text">Text CAPTCHA</button>
+    <button type="button" class="mode-button" data-type="image">Image CAPTCHA</button>
+    <button type="button" class="mode-button" data-type="puzzle">Puzzle CAPTCHA</button>
+  </div>
+
+  <!-- ===== workspace: generator + attacker share the same layout ===== -->
+  <div class="workspace">
+
+    <!-- Generator: solve area -->
+    <section class="card main-card only-gen" aria-labelledby="solve-h">
+      <h2 id="solve-h">Solve this challenge</h2>
+      <p id="instruction" class="instruction">Type the characters you see.</p>
+
+      <img id="shot" class="shot" alt="CAPTCHA challenge" width="440" height="260">
+
+      <div id="text-answer-area">
+        <form id="answer-form" class="row" autocomplete="off">
+          <input id="answer" type="text" maxlength="8" aria-label="Characters you see" required>
+          <button type="submit">Check answer</button>
+        </form>
+      </div>
+
+      <div id="image-answer-area" class="hidden">
+        <p class="task-box">Click the requested object in the image.</p>
+        <div class="row"><button type="button" id="image-submit">Confirm selection</button></div>
+      </div>
+
+      <div id="puzzle-answer-area" class="hidden">
+        <div id="puzzle-grid" aria-label="Puzzle tiles"></div>
+        <div class="row"><button type="button" id="puzzle-submit">Check puzzle</button></div>
+      </div>
+
+      <div class="row"><button type="button" id="refresh" class="ghost">New challenge</button></div>
+
+      <div id="msg" class="msg" role="status" aria-live="polite"></div>
+      <div id="tally" class="tally">No attempts yet.</div>
+    </section>
+
+    <!-- Attacker: same position as the solve area -->
+    <section class="card main-card only-att" aria-labelledby="attacker-heading">
+      <h2 id="attacker-heading">Run the attacker</h2>
+
+      <label for="attacker-type" class="instruction">Attacker challenge type</label>
+      <div class="attacker-controls">
+        <select id="attacker-type">
+          <option value="text">Text CAPTCHA (OCR)</option>
+          <option value="image">Image CAPTCHA</option>
+          <option value="puzzle">Puzzle CAPTCHA</option>
+        </select>
+        <button type="button" id="start-attacker">Start attacker</button>
+      </div>
+
+      <p id="attacker-status" class="status-line" role="status" aria-live="polite">Ready to run.</p>
+
+      <img id="attacker-image" class="attacker-image hidden" alt="Challenge being attempted by the attacker">
+
+      <h3>Live activity</h3>
+      <ol id="attacker-events" class="activity-log"><li>Waiting for an experiment.</li></ol>
+
+      <p id="attacker-result" class="msg" aria-live="polite"></p>
+    </section>
+
+    <!-- Difficulty: same position on both pages -->
+    <section class="card settings-card" aria-labelledby="settings-h">
+      <h2 id="settings-h">Difficulty</h2>
+
+      <div id="text-settings">
+        <div class="knob">
+          <label for="distort">Distortion <output id="o-distort">0</output></label>
+          <small>Waves the text and shifts letters up and down.</small>
+          <input id="distort" type="range" min="0" max="10" value="0">
+        </div>
+        <div class="knob">
+          <label for="noise">Noise <output id="o-noise">0</output></label>
+          <small>Adds lines, speckle and blur.</small>
+          <input id="noise" type="range" min="0" max="10" value="0">
+        </div>
+        <div class="knob">
+          <label for="rotate">Rotation <output id="o-rotate">0</output></label>
+          <small>Tilts each letter by a random angle.</small>
+          <input id="rotate" type="range" min="0" max="10" value="0">
+        </div>
+      </div>
+
+      <div id="image-settings" class="hidden">
+        <div class="knob">
+          <label for="image-difficulty">Image difficulty <output id="o-image-difficulty">3</output></label>
+          <small>Controls visual complexity.</small>
+          <input id="image-difficulty" type="range" min="0" max="10" value="3">
+        </div>
+        <div class="knob">
+          <label for="object-count">Objects <output id="o-object-count">6</output></label>
+          <small>Number of objects shown.</small>
+          <input id="object-count" type="range" min="3" max="10" value="6">
+        </div>
+      </div>
+
+      <div id="puzzle-settings" class="hidden">
+        <div class="knob">
+          <label for="puzzle-difficulty">Puzzle difficulty <output id="o-puzzle-difficulty">3</output></label>
+          <small>Controls puzzle complexity.</small>
+          <input id="puzzle-difficulty" type="range" min="0" max="10" value="3">
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== report (own page) ===== -->
+  <section class="card only-rep" aria-labelledby="report-heading">
+    <h2 id="report-heading">Experiment results</h2>
+
+    <div class="toolbar">
+      <button type="button" id="refresh-report" class="ghost">Refresh report</button>
+
+      <div class="report-view-toggle" role="tablist" aria-label="Report view">
+        <button type="button" class="view-btn active" data-view="attempts" role="tab">
+          Per attempt
+        </button>
+        <button type="button" class="view-btn" data-view="summary" role="tab">
+          Summary
+        </button>
+      </div>
+
+      <p id="report-status" class="status-line" role="status" aria-live="polite">
+        Report not loaded yet.
+      </p>
+    </div>
+
+    <!-- Per-attempt view -->
+    <div id="report-attempts-wrap" class="table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Actor</th>
+            <th>Challenge</th>
+            <th>Result</th>
+            <th>Solve time (s)</th>
+            <th>Risk</th>
+            <th>Fail reason</th>
+          </tr>
+        </thead>
+        <tbody id="report-attempts-body">
+          <tr><td colspan="8">No report loaded.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Summary view -->
+    <div id="report-summary-wrap" class="table-wrap hidden">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Actor</th><th>Challenge</th><th>Attempts</th><th>Successes</th>
+            <th>Success rate</th><th>Avg. time (s)</th><th>Avg. risk</th>
+            <th>Latest risk</th>
+          </tr>
+        </thead>
+        <tbody id="report-body">
+          <tr><td colspan="8">No report loaded.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== behaviour monitoring (own page) ===== -->
+  <div class="only-beh">
+    <section class="card" aria-labelledby="beh-heading">
+      <h2 id="beh-heading">Behaviour Monitoring</h2>
+
+      <div class="toolbar">
+        <button type="button" id="refresh-behaviour" class="ghost">Refresh</button>
+
+        <label for="beh-filter-actor" class="instruction" style="margin:0">Actor</label>
+        <select id="beh-filter-actor" style="padding:8px 12px;border:1px solid var(--line);border-radius:8px;">
+          <option value="">All</option>
+          <option value="human">Human</option>
+          <option value="attacker">Attacker</option>
+        </select>
+
+        <label for="beh-filter-type" class="instruction" style="margin:0">Type</label>
+        <select id="beh-filter-type" style="padding:8px 12px;border:1px solid var(--line);border-radius:8px;">
+          <option value="">All</option>
+          <option value="text">Text</option>
+          <option value="image">Image</option>
+          <option value="puzzle">Puzzle</option>
+        </select>
+
+        <p id="beh-status" class="status-line" role="status" aria-live="polite">Not loaded yet.</p>
+      </div>
+
+      <div id="beh-cards" class="stat-grid"></div>
+    </section>
+
+    <!-- Triggered rules — human vs attacker side by side -->
+    <section class="card" style="margin-top:18px" aria-labelledby="beh-rules-heading">
+      <h2 id="beh-rules-heading">Triggered rules (recent activity)</h2>
+      <p class="lede" style="margin-bottom:10px">How many times each rule fired, split by actor. Blank means the rule never fired in the loaded slice.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" id="beh-rules-grid">
+        <div>
+          <h3 style="margin-top:0">Human</h3>
+          <ul id="beh-rules-human" class="activity-log"><li>No data.</li></ul>
+        </div>
+        <div>
+          <h3 style="margin-top:0">Attacker</h3>
+          <ul id="beh-rules-attacker" class="activity-log"><li>No data.</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Raw per-attempt telemetry -->
+    <section class="card" style="margin-top:18px" aria-labelledby="beh-raw-heading">
+      <h2 id="beh-raw-heading">Per-attempt raw telemetry</h2>
+
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Actor</th>
+              <th>Type</th>
+              <th>Result</th>
+              <th>Time (s)</th>
+              <th>Risk</th>
+              <th>Keys</th>
+              <th>Backspace</th>
+              <th>Pointer moves</th>
+              <th>Pointer dist</th>
+              <th>Interactions</th>
+              <th>Pasted</th>
+              <th>Focus / blur</th>
+              <th>Visibility</th>
+              <th>First key ms</th>
+              <th>Typing cpm</th>
+              <th>Solver events</th>
+              <th>Triggered rules</th>
+            </tr>
+          </thead>
+          <tbody id="beh-body">
+            <tr><td colspan="18">No data loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== session monitoring (own page) ===== -->
+  <div class="only-ses">
+    <section class="card" aria-labelledby="ses-heading">
+      <h2 id="ses-heading">Session Monitoring</h2>
+
+      <div class="toolbar">
+        <button type="button" id="refresh-sessions" class="ghost">Refresh</button>
+        <p id="ses-status" class="status-line" role="status" aria-live="polite">Not loaded yet.</p>
+      </div>
+
+      <div id="ses-cards" class="stat-grid"></div>
+
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Session</th>
+              <th>IP hash</th>
+              <th>Primary actor</th>
+              <th>Attempts</th>
+              <th>Human / Attacker</th>
+              <th>Successes</th>
+              <th>Avg risk</th>
+              <th>Max risk</th>
+              <th>Avg time (s)</th>
+              <th>Last seen</th>
+              <th>Latest</th>
+            </tr>
+          </thead>
+          <tbody id="ses-body">
+            <tr><td colspan="11">No data loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== competitor analysis (own page) ===== -->
+  <div class="only-comp">
+    <section class="card" aria-labelledby="comp-heading">
+      <h2 id="comp-heading">Competitor Analysis</h2>
+      <p class="lede">How commercial CAPTCHA solutions and commercial bypass services compare against Platform 9¾.</p>
+
+      <div class="toolbar">
+        <button type="button" id="refresh-competitors" class="ghost">Refresh</button>
+        <p id="comp-status" class="status-line" role="status" aria-live="polite">Not loaded yet.</p>
+      </div>
+
+      <div id="comp-cards" class="stat-grid"></div>
+    </section>
+
+    <section class="card" style="margin-top:18px" aria-labelledby="comp-chart-heading">
+      <h2 id="comp-chart-heading">Signal coverage comparison</h2>
+      <p class="lede" style="margin-bottom:10px">Green = signal is collected. Grey = not collected or unknown.</p>
+      <div id="comp-chart" style="overflow-x:auto"></div>
+    </section>
+
+    <section class="card" style="margin-top:18px" aria-labelledby="comp-table-heading">
+      <h2 id="comp-table-heading">Vendor detail</h2>
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Vendor</th>
+              <th>Approach</th>
+              <th>Signals collected</th>
+              <th>Risk output</th>
+              <th>Explainable</th>
+              <th>Open source</th>
+              <th>Cost</th>
+            </tr>
+          </thead>
+          <tbody id="comp-body">
+            <tr><td colspan="7">No data loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== evaluation (own page) ===== -->
+  <div class="only-eval">
+    <div class="toolbar">
+      <button type="button" id="refresh-eval" class="ghost">Refresh evaluation</button>
+      <p id="eval-status" class="status-line" role="status" aria-live="polite">Evaluation not loaded yet.</p>
+    </div>
+    <div id="eval-cards" class="stat-grid"></div>
+
+    <section class="card" style="margin-top:18px" aria-labelledby="bench-heading">
+      <h2 id="bench-heading">L-MACD Benchmark vs Platform 9¾</h2>
+      <p class="lede" style="margin-bottom:10px">
+        Base paper: Sangwan, Gupta &amp; Rao (IEEE Access 2024) — reports AGE_eff
+        for four defense strategies. Below is a live comparison against this project.
+      </p>
+
+      <div id="bench-cards" class="stat-grid"></div>
+
+      <div class="table-wrap" style="margin-top:18px">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>Paper SR<sub>human</sub></th>
+              <th>Paper SR<sub>bot</sub></th>
+              <th>Paper AGE</th>
+              <th>Platform AGE</th>
+              <th>Δ (this work)</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody id="bench-body">
+            <tr><td colspan="7">Benchmark not loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap" style="margin-top:18px">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Platform 9¾ per challenge</th>
+              <th>Human attempts</th>
+              <th>Attacker attempts</th>
+              <th>SR<sub>human</sub></th>
+              <th>SR<sub>bot</sub></th>
+              <th>AGE</th>
+              <th>Human avg time</th>
+              <th>Attacker avg time</th>
+            </tr>
+          </thead>
+          <tbody id="bench-per-type-body">
+            <tr><td colspan="8">No data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="note" id="bench-note">Loading L-MACD benchmarks...</p>
+    </section>
+
+    <section class="card" style="margin-top:18px" aria-labelledby="eval-h">
+      <h2 id="eval-h">Verdict per challenge type</h2>
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Challenge</th><th>Human success</th><th>Attacker success</th><th>Gap (points)</th>
+              <th>Human time (s)</th><th>Attacker time (s)</th><th>Security</th><th>Usability</th>
+            </tr>
+          </thead>
+          <tbody id="eval-body"><tr><td colspan="8">No evaluation loaded.</td></tr></tbody>
+        </table>
+      </div>
+      <p class="note">Security: Strong = attacker succeeds under 20%, Moderate = 20–49%, Weak = 50% or more. Usability: Good = humans succeed 80% or more. Gap = human rate minus attacker rate; a larger gap is better.</p>
+    </section>
+  </div>
+
+  <!-- ===== verification (own page) ===== -->
+  <div class="only-ver">
+    <div class="toolbar">
+      <button type="button" id="refresh-verification" class="ghost">Re-run checks</button>
+      <p id="ver-status" class="status-line" role="status" aria-live="polite">Not loaded yet.</p>
+    </div>
+
+    <!-- Generation validity -->
+    <section class="card" aria-labelledby="ver-gen-heading">
+      <h2 id="ver-gen-heading">1. Generation validity</h2>
+      <p class="lede" style="margin-bottom:10px">Generate 3 fresh samples per type and check structural correctness.</p>
+      <div id="ver-gen-body"></div>
+    </section>
+
+    <!-- Attempt verification -->
+    <section class="card" style="margin-top:18px" aria-labelledby="ver-att-heading">
+      <h2 id="ver-att-heading">2. Attempt verification</h2>
+      <p class="lede" style="margin-bottom:10px">Re-validate the last 50 attempts against internal consistency rules.</p>
+      <div id="ver-att-cards" class="stat-grid"></div>
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Attempt</th>
+              <th>Type</th>
+              <th>Actor</th>
+              <th>Correct</th>
+              <th>Risk</th>
+              <th>Checks passed</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="ver-att-body">
+            <tr><td colspan="7">Not loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Risk audit -->
+    <section class="card" style="margin-top:18px" aria-labelledby="ver-risk-heading">
+      <h2 id="ver-risk-heading">3. Risk scoring audit</h2>
+      <p class="lede" style="margin-bottom:10px">Compare rule firing and risk distribution for human vs attacker.</p>
+      <div id="ver-risk-cards" class="stat-grid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px">
+        <div>
+          <h3 style="margin-top:0">Human rules fired</h3>
+          <ul id="ver-risk-human" class="activity-log" style="max-height:none"><li>No data.</li></ul>
+        </div>
+        <div>
+          <h3 style="margin-top:0">Attacker rules fired</h3>
+          <ul id="ver-risk-attacker" class="activity-log" style="max-height:none"><li>No data.</li></ul>
+        </div>
+      </div>
+    </section>
+  </div>
+
+</main>
+</div>
+
+
+<script>
+
+/* =================================================================
+   DOM helper
+================================================================= */
+
+const $ = (id) => document.getElementById(id);
+
+
+/* =================================================================
+   Global challenge state
+================================================================= */
+
+let challengeId = null;
+let challengeType = "text";
+let challengeTask = null;
+let tries = 0;
+let wins = 0;
+
+
+/* =================================================================
+   Image selection
+================================================================= */
+
+let selectedImagePoint = null;
+
+
+/* =================================================================
+   Puzzle state
+================================================================= */
+
+let puzzleMoves = 0;
+let puzzleSwaps = 0;
+
+
+/* =================================================================
+   Behaviour state
+================================================================= */
+
+let beh;
+let shownAt = 0;
+let lastKeyDown = null;
+let keyDownTimes = new Map();
+let lastPointer = null;
+let lastPointerTime = null;
+let hiddenStartedAt = null;
+
+
+/* =================================================================
+   Reset behaviour
+================================================================= */
+
+function resetBehaviour() {
+  beh = {
+    keys: 0,
+    backspaces: 0,
+    deletes: 0,
+    corrections: 0,
+    first_key_ms: null,
+    typing_duration_ms: 0,
+    typing_speed_cpm: 0,
+    key_gaps: [],
+    key_hold_times: [],
+
+    pointer_moves: 0,
+    pointer_distance: 0,
+    pointer_duration_ms: 0,
+    pointer_avg_speed: 0,
+    pointer_max_speed: 0,
+    pointer_direction_changes: 0,
+    pointer_pauses: 0,
+
+    clicks: 0,
+    pointer_downs: 0,
+    pointer_types: {},
+
+    focus_count: 0,
+    blur_count: 0,
+    refocus_count: 0,
+    input_events: 0,
+
+    pasted: false,
+    paste_count: 0,
+    copied: false,
+    copy_count: 0,
+    cut: false,
+    cut_count: 0,
+
+    scroll_events: 0,
+    visibility_changes: 0,
+    hidden_time_ms: 0,
+
+    first_interaction_ms: null,
+    interaction_events: 0,
+    final_input_length: 0,
+
+    image_selections: 0,
+    image_wrong_selections: 0,
+
+    puzzle_moves: 0,
+    puzzle_swaps: 0
+  };
+
+  shownAt = performance.now();
+  lastKeyDown = null;
+  keyDownTimes.clear();
+  lastPointer = null;
+  lastPointerTime = null;
+  hiddenStartedAt = null;
+  puzzleMoves = 0;
+  puzzleSwaps = 0;
+}
+
+
+/* =================================================================
+   Generic interaction
+================================================================= */
+
+function recordInteraction() {
+  if (!beh) return;
+  const now = performance.now();
+  beh.interaction_events++;
+  if (beh.first_interaction_ms === null) {
+    beh.first_interaction_ms = Math.round(now - shownAt);
+  }
+}
+
+
+/* =================================================================
+   Pointer tracking
+================================================================= */
+
+document.addEventListener("pointermove", (event) => {
+  if (!beh) return;
+  recordInteraction();
+  const now = performance.now();
+  beh.pointer_moves++;
+
+  if (event.pointerType) {
+    beh.pointer_types[event.pointerType] =
+      (beh.pointer_types[event.pointerType] || 0) + 1;
+  }
+
+  if (lastPointer !== null && lastPointerTime !== null) {
+    const dx = event.clientX - lastPointer.x;
+    const dy = event.clientY - lastPointer.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const dt = now - lastPointerTime;
+
+    if (distance > 0) {
+      beh.pointer_distance += distance;
+      if (dt > 0) {
+        const speed = distance / dt;
+        beh.pointer_duration_ms += dt;
+        beh.pointer_max_speed = Math.max(beh.pointer_max_speed, speed);
+        if (dt > 700) beh.pointer_pauses++;
+      }
+    }
+
+    if (lastPointer.dx !== undefined && lastPointer.dy !== undefined) {
+      const previousAngle = Math.atan2(lastPointer.dy, lastPointer.dx);
+      const currentAngle = Math.atan2(dy, dx);
+      let angleDifference = Math.abs(currentAngle - previousAngle);
+      if (angleDifference > Math.PI) angleDifference = 2 * Math.PI - angleDifference;
+      if (distance > 3 && angleDifference > Math.PI / 4) {
+        beh.pointer_direction_changes++;
+      }
+    }
+
+    lastPointer.dx = dx;
+    lastPointer.dy = dy;
+  } else {
+    lastPointer = { x: event.clientX, y: event.clientY, dx: 0, dy: 0 };
+  }
+
+  lastPointer.x = event.clientX;
+  lastPointer.y = event.clientY;
+  lastPointerTime = now;
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (!beh) return;
+  recordInteraction();
+  beh.pointer_downs++;
+  if (event.pointerType) {
+    beh.pointer_types[event.pointerType] =
+      (beh.pointer_types[event.pointerType] || 0) + 1;
+  }
+});
+
+document.addEventListener("click", () => {
+  if (!beh) return;
+  recordInteraction();
+  beh.clicks++;
+});
+
+
+/* =================================================================
+   Keyboard
+================================================================= */
+
+$("answer").addEventListener("keydown", (event) => {
+  if (challengeType !== "text" || event.repeat) return;
+  recordInteraction();
+  const now = performance.now();
+  beh.keys++;
+  if (beh.first_key_ms === null) beh.first_key_ms = Math.round(now - shownAt);
+  if (lastKeyDown !== null) beh.key_gaps.push(now - lastKeyDown);
+  lastKeyDown = now;
+  keyDownTimes.set(event.code, now);
+  if (event.key === "Backspace") { beh.backspaces++; beh.corrections++; }
+  if (event.key === "Delete") { beh.deletes++; beh.corrections++; }
+});
+
+$("answer").addEventListener("keyup", (event) => {
+  if (challengeType !== "text") return;
+  const started = keyDownTimes.get(event.code);
+  if (started === undefined) return;
+  beh.key_hold_times.push(performance.now() - started);
+  keyDownTimes.delete(event.code);
+});
+
+
+/* =================================================================
+   Text input
+================================================================= */
+
+$("answer").addEventListener("input", () => {
+  if (challengeType !== "text") return;
+  recordInteraction();
+  beh.input_events++;
+  beh.final_input_length = $("answer").value.length;
+});
+
+$("answer").addEventListener("focus", () => {
+  if (challengeType !== "text") return;
+  recordInteraction();
+  beh.focus_count++;
+  if (beh.focus_count > 1) beh.refocus_count++;
+});
+
+$("answer").addEventListener("blur", () => {
+  if (challengeType !== "text") return;
+  recordInteraction();
+  beh.blur_count++;
+});
+
+
+/* =================================================================
+   Clipboard
+================================================================= */
+
+$("answer").addEventListener("paste", () => {
+  if (challengeType !== "text") return;
+  recordInteraction();
+  beh.pasted = true;
+  beh.paste_count++;
+});
+
+$("answer").addEventListener("copy", () => {
+  if (challengeType !== "text") return;
+  recordInteraction();
+  beh.copied = true;
+  beh.copy_count++;
+});
+
+$("answer").addEventListener("cut", () => {
+  if (challengeType !== "text") return;
+  recordInteraction();
+  beh.cut = true;
+  beh.cut_count++;
+});
+
+
+/* =================================================================
+   Scroll
+================================================================= */
+
+window.addEventListener("scroll", () => {
+  if (!beh) return;
+  recordInteraction();
+  beh.scroll_events++;
+}, { passive:true });
+
+
+/* =================================================================
+   Visibility
+================================================================= */
+
+document.addEventListener("visibilitychange", () => {
+  if (!beh) return;
+  beh.visibility_changes++;
+  if (document.hidden) {
+    hiddenStartedAt = performance.now();
+  } else if (hiddenStartedAt !== null) {
+    beh.hidden_time_ms += performance.now() - hiddenStartedAt;
+    hiddenStartedAt = null;
+  }
+});
+
+
+/* =================================================================
+   Statistics
+================================================================= */
+
+function mean(values) {
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function standardDeviation(values) {
+  if (values.length < 2) return 0;
+  const avg = mean(values);
+  return Math.sqrt(values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / values.length);
+}
+
+
+/* =================================================================
+   Behaviour summary
+================================================================= */
+
+function behaviourSummary() {
+  const now = performance.now();
+  let totalHidden = beh.hidden_time_ms;
+  if (hiddenStartedAt !== null) totalHidden += now - hiddenStartedAt;
+
+  const keyGapMean = mean(beh.key_gaps);
+  const keyGapStd = standardDeviation(beh.key_gaps);
+  const holdMean = mean(beh.key_hold_times);
+  const holdStd = standardDeviation(beh.key_hold_times);
+
+  const pointerDuration = beh.pointer_duration_ms;
+  const pointerDistance = beh.pointer_distance;
+  let pointerAverageSpeed = 0;
+  if (pointerDuration > 0) pointerAverageSpeed = pointerDistance / pointerDuration;
+
+  const typingDuration =
+    beh.first_key_ms !== null && lastKeyDown !== null
+      ? Math.max(0, Math.round(now - (shownAt + beh.first_key_ms)))
+      : 0;
+
+  let typingSpeed = 0;
+  if (typingDuration > 0) typingSpeed = beh.keys / (typingDuration / 60000);
+
+  if (challengeType === "text") {
+    beh.final_input_length = $("answer").value.length;
+  } else {
+    beh.final_input_length = 0;
+  }
+
+  return {
+    challenge_type: challengeType,
+    keys: beh.keys,
+    backspaces: beh.backspaces,
+    deletes: beh.deletes,
+    corrections: beh.corrections,
+    first_key_ms: beh.first_key_ms,
+    typing_duration_ms: Math.round(typingDuration),
+    typing_speed_cpm: Math.round(typingSpeed),
+    key_gap_mean: Math.round(keyGapMean),
+    key_gap_std: Math.round(keyGapStd),
+    key_hold_mean: Math.round(holdMean),
+    key_hold_std: Math.round(holdStd),
+    pointer_moves: beh.pointer_moves,
+    pointer_distance: Math.round(pointerDistance),
+    pointer_duration_ms: Math.round(pointerDuration),
+    pointer_avg_speed: Number(pointerAverageSpeed.toFixed(3)),
+    pointer_max_speed: Number(beh.pointer_max_speed.toFixed(3)),
+    pointer_direction_changes: beh.pointer_direction_changes,
+    pointer_pauses: beh.pointer_pauses,
+    clicks: beh.clicks,
+    pointer_downs: beh.pointer_downs,
+    pointer_types: beh.pointer_types,
+    focus_count: beh.focus_count,
+    blur_count: beh.blur_count,
+    refocus_count: beh.refocus_count,
+    input_events: beh.input_events,
+    pasted: beh.pasted,
+    paste_count: beh.paste_count,
+    copied: beh.copied,
+    copy_count: beh.copy_count,
+    cut: beh.cut,
+    cut_count: beh.cut_count,
+    scroll_events: beh.scroll_events,
+    visibility_changes: beh.visibility_changes,
+    hidden_time_ms: Math.round(totalHidden),
+    first_interaction_ms: beh.first_interaction_ms,
+    interaction_events: beh.interaction_events,
+    final_input_length: beh.final_input_length,
+    image_selections: beh.image_selections,
+    image_wrong_selections: beh.image_wrong_selections,
+    puzzle_moves: beh.puzzle_moves,
+    puzzle_swaps: beh.puzzle_swaps
+  };
+}
+
+
+/* =================================================================
+   HTTP
+================================================================= */
+
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  let data = {};
+  try { data = await res.json(); } catch (_) { data = { error: "Invalid server response." }; }
+  return { ok: res.ok, data };
+}
+
+
+/* =================================================================
+   Parameters
+================================================================= */
+
+function textParams() {
+  return {
+    distort: Number($("distort").value),
+    noise: Number($("noise").value),
+    rotate: Number($("rotate").value)
+  };
+}
+
+function currentParams() {
+  if (challengeType === "text") {
+    return { type: "text", ...textParams() };
+  }
+  if (challengeType === "image") {
+    return {
+      type: "image",
+      difficulty: Number($("image-difficulty").value),
+      object_count: Number($("object-count").value)
+    };
+  }
+  return {
+    type: "puzzle",
+    difficulty: Number($("puzzle-difficulty").value)
+  };
+}
+
+
+/* =================================================================
+   UI mode
+================================================================= */
+
+function updateModeUI() {
+  const isText = challengeType === "text";
+  const isImage = challengeType === "image";
+  const isPuzzle = challengeType === "puzzle";
+
+  $("text-answer-area").classList.toggle("hidden", !isText);
+  $("image-answer-area").classList.toggle("hidden", !isImage);
+  $("puzzle-answer-area").classList.toggle("hidden", !isPuzzle);
+  $("text-settings").classList.toggle("hidden", !isText);
+  $("image-settings").classList.toggle("hidden", !isImage);
+  $("puzzle-settings").classList.toggle("hidden", !isPuzzle);
+  $("shot").classList.toggle("image-selectable", isImage);
+
+  document.querySelectorAll(".mode-button").forEach(button => {
+    button.classList.toggle("active", button.dataset.type === challengeType);
+  });
+}
+
+
+/* =================================================================
+   Render challenge
+================================================================= */
+
+function renderChallenge(data) {
+  challengeTask = data.task || null;
+  updateModeUI();
+
+  if (data.type === "text") {
+    $("instruction").textContent = "Type the characters you see.";
+    $("shot").alt = "Text CAPTCHA challenge";
+  } else if (data.type === "image") {
+    const target = data.task && data.task.target ? data.task.target : "requested object";
+    $("instruction").textContent = `Click the ${target}.`;
+    $("shot").alt = "Image CAPTCHA challenge";
+  } else if (data.type === "puzzle") {
+    $("instruction").textContent = "Arrange the image tiles correctly.";
+    $("shot").alt = "Puzzle source image";
+    createPuzzleGrid(data.task);
+  }
+}
+
+
+/* =================================================================
+   Load challenge
+================================================================= */
+
+async function loadChallenge(type = challengeType) {
+  challengeType = type;
+  selectedImagePoint = null;
+  puzzleMoves = 0;
+  puzzleSwaps = 0;
+  updateModeUI();
+
+  const body = currentParams();
+  const { ok, data } = await post("/api/captcha/new", body);
+
+  if (!ok) {
+    setMsg(data.error || "Could not load challenge.", false);
+    return;
+  }
+
+  challengeId = data.id;
+  challengeType = data.type;
+  challengeTask = data.task || null;
+  $("shot").src = data.image;
+  $("answer").value = "";
+
+  renderChallenge(data);
+
+  $("shot").onload = () => {
+    resetBehaviour();
+    if (challengeType === "text") $("answer").focus();
+  };
+}
+
+
+/* =================================================================
+   Image click
+================================================================= */
+
+$("shot").addEventListener("click", (event) => {
+  if (challengeType !== "image") return;
+  recordInteraction();
+
+  const rect = $("shot").getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+
+  const naturalWidth = $("shot").naturalWidth || 440;
+  const naturalHeight = $("shot").naturalHeight || 260;
+  const scaleX = naturalWidth / rect.width;
+  const scaleY = naturalHeight / rect.height;
+
+  selectedImagePoint = {
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY
+  };
+
+  beh.image_selections++;
+});
+
+
+/* =================================================================
+   Image submit
+================================================================= */
+
+$("image-submit").addEventListener("click", async () => {
+  if (!selectedImagePoint) {
+    setMsg("Click an object first.", false);
+    return;
+  }
+  await submitChallenge(selectedImagePoint);
+});
+
+
+/* =================================================================
+   Puzzle creation
+================================================================= */
+
+function createPuzzleGrid(task) {
+  selectedPuzzleTile = null;
+
+  const grid = $("puzzle-grid");
+  grid.innerHTML = "";
+
+  const rows = Number(task?.rows || 2);
+  const cols = Number(task?.cols || 2);
+  const tileCount = rows * cols;
+
+  const shuffledOrder =
+    Array.isArray(task?.shuffled_order) && task.shuffled_order.length === tileCount
+      ? task.shuffled_order.map(Number)
+      : (() => {
+          const arr = Array.from({ length: tileCount }, (_, i) => i);
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+          }
+          if (arr.every((v, i) => v === i) && arr.length > 1) {
+            [arr[0], arr[1]] = [arr[1], arr[0]];
+          }
+          return arr;
+        })();
+
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  shuffledOrder.forEach((tileNumber) => {
+    const tile = document.createElement("div");
+    tile.className = "puzzle-tile";
+    tile.draggable = true;
+    tile.dataset.tile = String(tileNumber);
+
+    const row = Math.floor(tileNumber / cols);
+    const col = tileNumber % cols;
+    const x = cols === 1 ? 0 : (col / (cols - 1)) * 100;
+    const y = rows === 1 ? 0 : (row / (rows - 1)) * 100;
+
+    tile.style.backgroundImage = `url("${$("shot").src}")`;
+    tile.style.backgroundSize = `${cols * 100}% ${rows * 100}%`;
+    tile.style.backgroundPosition = `${x}% ${y}%`;
+
+    const number = document.createElement("span");
+    number.className = "puzzle-tile-number";
+    number.textContent = tileNumber + 1;
+    tile.appendChild(number);
+
+    tile.addEventListener("dragstart", () => {
+      recordInteraction();
+      tile.classList.add("dragging");
+    });
+    tile.addEventListener("dragend", () => tile.classList.remove("dragging"));
+    tile.addEventListener("dragover", (event) => { event.preventDefault(); recordInteraction(); });
+    tile.addEventListener("drop", (event) => { event.preventDefault(); swapPuzzleTiles(tile); });
+    tile.addEventListener("click", () => handlePuzzleClick(tile));
+
+    grid.appendChild(tile);
+  });
+}
+
+
+/* =================================================================
+   Puzzle drag/drop
+================================================================= */
+
+function swapNodes(a, b) {
+  if (a === b) return;
+  const marker = document.createElement("div");
+  a.parentNode.insertBefore(marker, a);
+  b.parentNode.insertBefore(a, b);
+  marker.parentNode.insertBefore(b, marker);
+  marker.remove();
+}
+
+function swapPuzzleTiles(target) {
+  const dragging = document.querySelector(".puzzle-tile.dragging");
+  if (!dragging || dragging === target) return;
+  swapNodes(dragging, target);
+
+  puzzleMoves++;
+  puzzleSwaps++;
+  beh.puzzle_moves = puzzleMoves;
+  beh.puzzle_swaps = puzzleSwaps;
+
+  recordInteraction();
+}
+
+
+/* =================================================================
+   Puzzle click-to-swap
+================================================================= */
+
+let selectedPuzzleTile = null;
+
+function handlePuzzleClick(tile) {
+  if (challengeType !== "puzzle") return;
+  recordInteraction();
+
+  if (selectedPuzzleTile === null) {
+    selectedPuzzleTile = tile;
+    tile.classList.add("dragging");
+    return;
+  }
+
+  if (selectedPuzzleTile === tile) {
+    tile.classList.remove("dragging");
+    selectedPuzzleTile = null;
+    return;
+  }
+
+  swapNodes(selectedPuzzleTile, tile);
+  selectedPuzzleTile.classList.remove("dragging");
+  selectedPuzzleTile = null;
+
+  puzzleMoves++;
+  puzzleSwaps++;
+  beh.puzzle_moves = puzzleMoves;
+  beh.puzzle_swaps = puzzleSwaps;
+}
+
+
+/* =================================================================
+   Puzzle answer
+================================================================= */
+
+function getPuzzleAnswer() {
+  return [...document.querySelectorAll("#puzzle-grid .puzzle-tile")]
+    .map(tile => Number(tile.dataset.tile));
+}
+
+
+/* =================================================================
+   Puzzle submit
+================================================================= */
+
+$("puzzle-submit").addEventListener("click", async () => {
+  await submitChallenge(getPuzzleAnswer());
+});
+
+
+/* =================================================================
+   Common submit
+================================================================= */
+
+async function submitChallenge(answer) {
+  if (!challengeId) {
+    setMsg("Please wait for a challenge to load.", false);
+    return;
+  }
+
+  const behaviour = behaviourSummary();
+  const { ok, data } = await post("/api/captcha/verify", {
+    id: challengeId,
+    answer: answer,
+    behaviour: behaviour,
+    actor: "human",
+    experiment_id: "side_by_side_v1"
+  });
+
+  if (!ok) {
+    setMsg(data.error || "Verification failed.", false);
+    await loadChallenge(challengeType);
+    return;
+  }
+
+  tries++;
+  if (data.correct) wins++;
+
+  setMsg(
+    data.correct
+      ? `Correct, solved in ${data.solve_time}s.`
+      : "Not quite. Here is a fresh challenge.",
+    data.correct
+  );
+
+  $("tally").textContent = `${wins} of ${tries} solved this session.`;
+
+  await loadChallenge(challengeType);
+}
+
+
+/* =================================================================
+   Text form submit
+================================================================= */
+
+$("answer-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (challengeType !== "text") return;
+  await submitChallenge($("answer").value);
+});
+
+
+/* =================================================================
+   Message
+================================================================= */
+
+function setMsg(text, good) {
+  const el = $("msg");
+  el.textContent = text;
+  el.className = "msg " + (good ? "ok" : "bad");
+}
+
+
+/* =================================================================
+   Mode buttons
+================================================================= */
+
+document.querySelectorAll(".mode-button").forEach(button => {
+  button.addEventListener("click", async () => {
+    const type = button.dataset.type;
+    if (type === challengeType) return;
+    challengeId = null;
+    setMsg("", true);
+    await loadChallenge(type);
+  });
+});
+
+
+/* =================================================================
+   Text sliders
+================================================================= */
+
+["distort", "noise", "rotate"].forEach(knob => {
+  $(knob).addEventListener("input", () => {
+    $("o-" + knob).textContent = $(knob).value;
+  });
+  $(knob).addEventListener("change", async () => {
+    if (challengeType !== "text") return;
+    setMsg("", true);
+    await loadChallenge("text");
+  });
+});
+
+
+/* =================================================================
+   Image sliders
+================================================================= */
+
+$("image-difficulty").addEventListener("input", () => {
+  $("o-image-difficulty").textContent = $("image-difficulty").value;
+});
+$("object-count").addEventListener("input", () => {
+  $("o-object-count").textContent = $("object-count").value;
+});
+$("image-difficulty").addEventListener("change", async () => {
+  if (challengeType !== "image") return;
+  await loadChallenge("image");
+});
+$("object-count").addEventListener("change", async () => {
+  if (challengeType !== "image") return;
+  await loadChallenge("image");
+});
+
+
+/* =================================================================
+   Puzzle slider
+================================================================= */
+
+$("puzzle-difficulty").addEventListener("input", () => {
+  $("o-puzzle-difficulty").textContent = $("puzzle-difficulty").value;
+});
+$("puzzle-difficulty").addEventListener("change", async () => {
+  if (challengeType !== "puzzle") return;
+  await loadChallenge("puzzle");
+});
+
+
+/* =================================================================
+   New challenge
+================================================================= */
+
+$("refresh").addEventListener("click", async () => {
+  setMsg("", true);
+  await loadChallenge(challengeType);
+});
+
+
+/* ================================================================
+   Human vs Attacker experiment
+================================================================ */
+
+const EXPERIMENT_ID = "side_by_side_v1";
+
+function addAttackerEvent(message, kind = "") {
+  const list = $("attacker-events");
+  const item = document.createElement("li");
+  item.textContent = message;
+  if (kind) item.classList.add(kind);
+  list.appendChild(item);
+
+  while (list.children.length > 40) {
+    list.removeChild(list.firstElementChild);
+  }
+  list.scrollTop = list.scrollHeight;
+}
+
+function setAttackerStatus(message) {
+  $("attacker-status").textContent = message;
+}
+
+function attackerParams(type) {
+  if (type === "text") {
+    return { type: "text", ...textParams() };
+  }
+  if (type === "image") {
+    return {
+      type: "image",
+      difficulty: Number($("image-difficulty").value),
+      object_count: Number($("object-count").value)
+    };
+  }
+  return {
+    type: "puzzle",
+    difficulty: Number($("puzzle-difficulty").value)
+  };
+}
+
+function formatGuess(guess) {
+  if (typeof guess === "string") return guess || "(empty guess)";
+  try { return JSON.stringify(guess); } catch (_) { return String(guess); }
+}
+
+async function runAttacker() {
+  const button = $("start-attacker");
+  const type = $("attacker-type").value;
+
+  button.disabled = true;
+  $("attacker-events").replaceChildren();
+  $("attacker-result").textContent = "";
+  $("attacker-image").classList.add("hidden");
+
+  setAttackerStatus("Issuing a separate challenge...");
+  addAttackerEvent(`Starting ${type} challenge experiment.`);
+
+  try {
+    const issuedResponse = await post("/api/captcha/new", attackerParams(type));
+    if (!issuedResponse.ok) {
+      throw new Error(issuedResponse.data.error || "Could not issue attacker challenge.");
+    }
+    const issued = issuedResponse.data;
+
+    if (!issued.id || !issued.image) {
+      throw new Error("Server response is missing challenge ID or image.");
+    }
+
+    $("attacker-image").src = issued.image;
+    $("attacker-image").alt = `${type} challenge for the attacker`;
+    $("attacker-image").classList.remove("hidden");
+
+    addAttackerEvent("Challenge image received.");
+    addAttackerEvent(`Challenge type: ${issued.type}.`);
+
+    setAttackerStatus("Solver is analysing the challenge...");
+    addAttackerEvent("Sending challenge to the local solver.");
+
+    const solveResponse = await post("/api/attacker/solve", {
+      challenge_id: issued.id
+    });
+
+    if (!solveResponse.ok) {
+      throw new Error(solveResponse.data.error || "Attacker solver failed.");
+    }
+
+    const solved = solveResponse.data;
+    const events = Array.isArray(solved.events) ? solved.events : [];
+
+    for (const event of events) {
+      const message = typeof event === "string" ? event : JSON.stringify(event);
+      addAttackerEvent(message);
+      await new Promise(resolve => setTimeout(resolve, 650));
+    }
+
+    addAttackerEvent(`Solver: ${solved.solver || "local solver"}.`);
+    addAttackerEvent(`Solver time: ${Number(solved.elapsed_ms || 0)} ms.`);
+    addAttackerEvent(`Guess: ${formatGuess(solved.guess)}`);
+
+    setAttackerStatus("Submitting guess for verification...");
+    addAttackerEvent("Submitting guess to the CAPTCHA verifier.");
+
+    const verifyResponse = await post("/api/captcha/verify", {
+      id: issued.id,
+      answer: solved.guess,
+      actor: "attacker",
+      experiment_id: EXPERIMENT_ID,
+      behaviour: {
+        interaction_events: 0,
+        pointer_moves: 0,
+        clicks: 0,
+        input_events: 0,
+        final_input_length:
+          typeof solved.guess === "string" ? solved.guess.length : 0
+      }
+    });
+
+    if (!verifyResponse.ok) {
+      throw new Error(verifyResponse.data.error || "Could not verify attacker guess.");
+    }
+
+    const verified = verifyResponse.data;
+
+    if (verified.correct) {
+      setAttackerStatus("Attacker solved the challenge.");
+      $("attacker-result").textContent = `Success — verified in ${verified.solve_time} seconds.`;
+      $("attacker-result").className = "msg ok";
+      addAttackerEvent("Verification: SUCCESS.", "success");
+    } else {
+      setAttackerStatus("Attacker did not solve the challenge.");
+      $("attacker-result").textContent = `Failed — verification time ${verified.solve_time} seconds.`;
+      $("attacker-result").className = "msg bad";
+      addAttackerEvent("Verification: FAILED.", "failure");
+    }
+  } catch (error) {
+    console.error("Attacker experiment error:", error);
+    setAttackerStatus("Experiment encountered an error.");
+    $("attacker-result").textContent = error.message || "Unexpected error.";
+    $("attacker-result").className = "msg bad";
+    addAttackerEvent(`Error: ${error.message || "Unexpected error."}`, "failure");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+$("start-attacker").addEventListener("click", runAttacker);
+
+
+/* ================================================================
+   Summary report
+================================================================ */
+
+async function refreshExperimentReport() {
+  const status = $("report-status");
+  const tbody = $("report-body");
+  if (!tbody) return;
+
+  status.textContent = "Loading summary report...";
+
+  try {
+    const response = await fetch(
+      `/api/experiment/report?experiment_id=${encodeURIComponent(EXPERIMENT_ID)}`
+    );
+    let data = {};
+    try { data = await response.json(); }
+    catch (_) { throw new Error("Report endpoint returned invalid JSON."); }
+    if (!response.ok) throw new Error(data.error || "Could not load report.");
+
+    const rows = Array.isArray(data.report) ? data.report : [];
+    tbody.replaceChildren();
+
+    if (rows.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 8;
+      td.textContent = "No attempts recorded for this experiment yet.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      status.textContent = "No experiment results yet.";
+      return;
+    }
+
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      const values = [
+        row.actor ?? "unknown",
+        row.challenge_type ?? "unknown",
+        row.total_attempts ?? 0,
+        row.successes ?? 0,
+        row.success_rate_percent == null ? "N/A" : `${row.success_rate_percent}%`,
+        row.avg_solve_time == null ? "N/A" : row.avg_solve_time,
+        row.avg_risk == null ? "N/A" : row.avg_risk,
+        row.latest_risk == null ? "N/A" : row.latest_risk
+      ];
+      for (const value of values) {
+        const td = document.createElement("td");
+        td.textContent = String(value);
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+
+    status.textContent = `Loaded ${rows.length} report group(s).`;
+  } catch (error) {
+    console.error("Report error:", error);
+    status.textContent = `Report error: ${error.message || "Could not load report."}`;
+  }
+}
+
+
+/* ================================================================
+   Per-attempt report
+================================================================ */
+
+async function refreshAttemptsReport() {
+  const status = $("report-status");
+  const tbody = $("report-attempts-body");
+  if (!tbody) return;
+
+  status.textContent = "Loading per-attempt report...";
+
+  try {
+    const response = await fetch(
+      `/api/experiment/attempts?experiment_id=${encodeURIComponent(EXPERIMENT_ID)}&limit=200`
+    );
+    let data = {};
+    try { data = await response.json(); }
+    catch (_) { throw new Error("Attempts endpoint returned invalid JSON."); }
+    if (!response.ok) throw new Error(data.error || "Could not load attempts.");
+
+    const attempts = Array.isArray(data.attempts) ? data.attempts : [];
+    tbody.replaceChildren();
+
+    if (attempts.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 8;
+      td.textContent = "No attempts recorded for this experiment yet.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      status.textContent = "No experiment results yet.";
+      return;
+    }
+
+    const riskBand = (r) => {
+      const v = Number(r);
+      if (!isFinite(v)) return { cls: "low", label: "—" };
+      if (v >= 0.60) return { cls: "high", label: `High (${v})` };
+      if (v >= 0.30) return { cls: "medium", label: `Med (${v})` };
+      return { cls: "low", label: `Low (${v})` };
+    };
+
+    attempts.forEach((row, index) => {
+      const tr = document.createElement("tr");
+
+      const cellText = (value, extraClass) => {
+        const td = document.createElement("td");
+        td.textContent = value;
+        if (extraClass) td.className = extraClass;
+        tr.appendChild(td);
+      };
+      const cellNode = (node) => {
+        const td = document.createElement("td");
+        td.appendChild(node);
+        tr.appendChild(td);
+      };
+
+      cellText(String(index + 1));
+      cellText(row.ts_iso || "—");
+
+      const actorSpan = document.createElement("span");
+      actorSpan.className = "actor-pill " + (row.actor === "attacker" ? "attacker" : "human");
+      actorSpan.textContent = row.actor || "unknown";
+      cellNode(actorSpan);
+
+      cellText(row.challenge_type || "unknown");
+
+      const resultSpan = document.createElement("span");
+      resultSpan.className = "result-pill " + (row.correct ? "ok" : "bad");
+      resultSpan.textContent = row.correct ? "Correct" : "Wrong";
+      cellNode(resultSpan);
+
+      cellText(row.solve_time == null ? "—" : Number(row.solve_time).toFixed(2));
+
+      const band = riskBand(row.risk);
+      const riskSpan = document.createElement("span");
+      riskSpan.className = "risk-pill " + band.cls;
+      riskSpan.textContent = band.label;
+      cellNode(riskSpan);
+
+      cellText(row.fail_reason || "—");
+
+      tbody.appendChild(tr);
+    });
+
+    status.textContent = `Loaded ${attempts.length} attempt(s).`;
+  } catch (error) {
+    console.error("Attempts report error:", error);
+    status.textContent = `Report error: ${error.message || "Could not load attempts."}`;
+  }
+}
+
+
+/* ================================================================
+   Report view toggle
+================================================================ */
+
+function initReportToggle() {
+  const buttons = document.querySelectorAll(".report-view-toggle .view-btn");
+  const attemptsWrap = $("report-attempts-wrap");
+  const summaryWrap = $("report-summary-wrap");
+  if (!buttons.length || !attemptsWrap || !summaryWrap) return;
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const view = btn.dataset.view;
+      buttons.forEach((b) => b.classList.toggle("active", b === btn));
+
+      if (view === "attempts") {
+        attemptsWrap.classList.remove("hidden");
+        summaryWrap.classList.add("hidden");
+        refreshAttemptsReport();
+      } else {
+        summaryWrap.classList.remove("hidden");
+        attemptsWrap.classList.add("hidden");
+        refreshExperimentReport();
+      }
+    });
+  });
+}
+
+$("refresh-report").addEventListener("click", () => {
+  const activeBtn = document.querySelector(".report-view-toggle .view-btn.active");
+  const view = activeBtn ? activeBtn.dataset.view : "attempts";
+  if (view === "summary") refreshExperimentReport();
+  else refreshAttemptsReport();
+});
+
+
+/* =================================================================
+   First challenge
+================================================================= */
+
+loadChallenge("text");
+
+</script>
+
+
+<!-- UI helpers + evaluation + behaviour + sessions + competitors + verification -->
+<script>
+(function () {
+  const g = (id) => document.getElementById(id);
+  const page = ["generator", "attacker", "report", "evaluation", "behaviour", "sessions", "competitors", "verification"]
+    .find((c) => document.body.classList.contains(c)) || "generator";
+
+  /* mobile sidebar */
+  const burger = g("burger");
+  if (burger) {
+    burger.addEventListener("click", () =>
+      document.body.classList.toggle("nav-open"));
+  }
+
+  /* attacker page: show the settings of the selected attacker type */
+  if (page === "attacker") {
+    const sel = g("attacker-type");
+    if (sel) {
+      const show = (t) => ["text", "image", "puzzle"].forEach((k) =>
+        g(k + "-settings").classList.toggle("hidden", k !== t));
+
+      const originalUpdate = window.updateModeUI;
+      window.updateModeUI = function () {
+        if (typeof originalUpdate === "function") originalUpdate();
+        show(sel.value);
+      };
+      show(sel.value);
+      sel.addEventListener("change", () => show(sel.value));
+    }
+  }
+
+  /* ---------------- evaluation ---------------- */
+  const num = (v) => (v == null || isNaN(v) ? null : Number(v));
+  const fmt = (v, d = 1) => (v == null ? "N/A" : Number(v).toFixed(d));
+
+  function totals(rows, actor) {
+    let a = 0, s = 0, tSum = 0, tN = 0, rSum = 0, rN = 0;
+    rows.filter((r) => r.actor === actor).forEach((r) => {
+      const n = num(r.total_attempts) || 0;
+      a += n; s += num(r.successes) || 0;
+      if (num(r.avg_solve_time) != null) { tSum += r.avg_solve_time * n; tN += n; }
+      if (num(r.avg_risk) != null) { rSum += r.avg_risk * n; rN += n; }
+    });
+    return { a, s, rate: a ? (s / a) * 100 : null,
+             time: tN ? tSum / tN : null, risk: rN ? rSum / rN : null };
+  }
+
+  function stat(label, value, sub, pct, cls) {
+    const d = document.createElement("div");
+    d.className = "stat " + (cls || "");
+    const s1 = document.createElement("small"); s1.textContent = label;
+    const st = document.createElement("strong"); st.textContent = value;
+    const s2 = document.createElement("span"); s2.textContent = sub;
+    d.append(s1, st, s2);
+    if (pct != null) {
+      const b = document.createElement("div"); b.className = "bar";
+      const i = document.createElement("div");
+      i.style.width = Math.max(0, Math.min(100, pct)) + "%";
+      b.appendChild(i); d.appendChild(b);
+    }
+    return d;
+  }
+
+  function badge(text, cls) {
+    const s = document.createElement("span");
+    s.className = "badge " + cls; s.textContent = text; return s;
+  }
+
+  function statCard(label, value, sub, pct, cls) {
+    const d = document.createElement("div");
+    d.className = "stat " + (cls || "");
+    const s1 = document.createElement("small"); s1.textContent = label;
+    const st = document.createElement("strong"); st.textContent = value;
+    const s2 = document.createElement("span"); s2.textContent = sub;
+    d.append(s1, st, s2);
+    if (pct != null) {
+      const b = document.createElement("div"); b.className = "bar";
+      const i = document.createElement("div");
+      i.style.width = Math.max(0, Math.min(100, pct)) + "%";
+      b.appendChild(i); d.appendChild(b);
+    }
+    return d;
+  }
+
+  const fmtNum = (v, d = 2) => (v == null ? "—" : Number(v).toFixed(d));
+  const fmtInt = (v) => (v == null ? "—" : String(Math.round(v)));
+
+  async function refreshEvaluation() {
+    const status = g("eval-status");
+    if (!status) return;
+    status.textContent = "Loading evaluation...";
+    try {
+      const res = await fetch("/api/experiment/report?experiment_id=" +
+        encodeURIComponent("side_by_side_v1"));
+      let data = {};
+      try { data = await res.json(); }
+      catch (_) { throw new Error("Report endpoint returned invalid JSON."); }
+      if (!res.ok) throw new Error(data.error || "Could not load report.");
+
+      const rows = Array.isArray(data.report) ? data.report : [];
+      const cards = g("eval-cards"), body = g("eval-body");
+      cards.replaceChildren(); body.replaceChildren();
+
+      if (!rows.length) {
+        const tr = document.createElement("tr"), td = document.createElement("td");
+        td.colSpan = 8; td.textContent = "No attempts recorded yet. Run the generator and the attacker first.";
+        tr.appendChild(td); body.appendChild(tr);
+        status.textContent = "No experiment results yet.";
+        return;
+      }
+
+      const h = totals(rows, "human"), a = totals(rows, "attacker");
+      cards.append(
+        stat("Human success rate", fmt(h.rate) + "%", h.s + " of " + h.a + " attempts", h.rate),
+        stat("Attacker success rate", fmt(a.rate) + "%", a.s + " of " + a.a + " attempts", a.rate,
+             a.rate != null && a.rate >= 50 ? "bad" : a.rate != null && a.rate >= 20 ? "warn" : ""),
+        stat("Average solve time", fmt(h.time, 2) + "s human", fmt(a.time, 2) + "s attacker"),
+        stat("Average risk score", fmt(h.risk, 2) + " human", fmt(a.risk, 2) + " attacker")
+      );
+
+      const by = {};
+      rows.forEach((r) => {
+        const t = r.challenge_type ?? "unknown";
+        (by[t] = by[t] || {})[r.actor] = r;
+      });
+
+      Object.keys(by).forEach((t) => {
+        const hr = by[t].human, ar = by[t].attacker;
+        const hRate = hr ? num(hr.success_rate_percent) : null;
+        const aRate = ar ? num(ar.success_rate_percent) : null;
+        const tr = document.createElement("tr");
+        const cell = (v) => { const td = document.createElement("td");
+          if (v instanceof Node) td.appendChild(v); else td.textContent = v;
+          tr.appendChild(td); };
+        cell(t);
+        cell(hRate == null ? "N/A" : hRate + "%");
+        cell(aRate == null ? "N/A" : aRate + "%");
+        cell(hRate == null || aRate == null ? "N/A" : fmt(hRate - aRate));
+        cell(hr ? fmt(num(hr.avg_solve_time), 2) : "N/A");
+        cell(ar ? fmt(num(ar.avg_solve_time), 2) : "N/A");
+        cell(aRate == null ? badge("Need data", "") :
+             aRate >= 50 ? badge("Weak", "bad") :
+             aRate >= 20 ? badge("Moderate", "warn") : badge("Strong", "ok"));
+        cell(hRate == null ? badge("Need data", "") :
+             hRate >= 80 ? badge("Good", "ok") : badge("Needs review", "warn"));
+        body.appendChild(tr);
+      });
+
+      status.textContent = "Evaluated " + Object.keys(by).length + " challenge type(s).";
+    } catch (e) {
+      console.error("Evaluation error:", e);
+      status.textContent = "Evaluation error: " + (e.message || "Could not load.");
+    }
+  }
+
+  const refreshEvalBtn = g("refresh-eval");
+  if (refreshEvalBtn) {
+    refreshEvalBtn.addEventListener("click", () => {
+      refreshEvaluation();
+      refreshBenchmark();
+    });
+  }
+
+  /* ---------------- L-MACD benchmark vs Platform 9¾ ---------------- */
+
+  const pct = (v) => (v == null ? "—" : (v * 100).toFixed(2) + "%");
+  const ageFmt = (v) => (v == null ? "—" : Number(v).toFixed(4));
+  const deltaFmt = (v) => {
+    if (v == null) return "—";
+    const sign = v > 0 ? "+" : "";
+    return sign + Number(v).toFixed(4);
+  };
+
+  async function refreshBenchmark() {
+    const status = g("bench-note");
+    const cards = g("bench-cards");
+    const tbody = g("bench-body");
+    const perTypeBody = g("bench-per-type-body");
+    if (!cards || !tbody) return;
+
+    status.textContent = "Loading L-MACD benchmarks...";
+
+    try {
+      const res = await fetch("/api/evaluation/benchmark");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not load benchmark.");
+
+      const paper = Array.isArray(data.paper) ? data.paper : [];
+      const project = data.project || {};
+      const comparison = Array.isArray(data.comparison) ? data.comparison : [];
+
+      cards.replaceChildren();
+
+      const projectAge = project.age;
+      const g4 = paper.find((p) => p.id === "G4");
+      const g4Age = g4 ? g4.age : null;
+
+      cards.append(
+        statCard(
+          "Platform 9¾ AGE",
+          ageFmt(projectAge),
+          data.overall_verdict || "—",
+          projectAge != null ? Math.max(0, Math.min(100, projectAge * 100)) : null,
+          data.overall_cls === "bad" ? "bad" : data.overall_cls === "warn" ? "warn" : ""
+        ),
+        statCard(
+          "Best paper AGE (G4)",
+          ageFmt(g4Age),
+          "L-MACD RL-Adaptive",
+          g4Age != null ? Math.max(0, Math.min(100, g4Age * 100)) : null
+        ),
+        statCard(
+          "Platform SR human",
+          pct(project.sr_human),
+          `${project.human_total || 0} attempts`,
+          project.sr_human != null ? project.sr_human * 100 : null
+        ),
+        statCard(
+          "Platform SR bot",
+          pct(project.sr_bot),
+          `${project.attacker_total || 0} attempts`,
+          project.sr_bot != null ? project.sr_bot * 100 : null,
+          project.sr_bot != null && project.sr_bot >= 0.50 ? "bad" : project.sr_bot != null && project.sr_bot >= 0.20 ? "warn" : ""
+        )
+      );
+
+      tbody.replaceChildren();
+
+      if (!comparison.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 7;
+        td.textContent = "No comparison data.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      } else {
+        comparison.forEach((row) => {
+          const tr = document.createElement("tr");
+
+          const cellText = (value) => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            tr.appendChild(td);
+          };
+          const cellNode = (node) => {
+            const td = document.createElement("td");
+            td.appendChild(node);
+            tr.appendChild(td);
+          };
+
+          cellText(row.name);
+          cellText(pct(row.paper_sr_human));
+          cellText(pct(row.paper_sr_bot));
+          cellText(ageFmt(row.paper_age));
+          cellText(ageFmt(row.project_age));
+
+          const deltaSpan = document.createElement("span");
+          if (row.age_delta == null) {
+            deltaSpan.textContent = "—";
+          } else if (row.age_delta > 0.05) {
+            deltaSpan.style.color = "var(--ok)";
+            deltaSpan.style.fontWeight = "800";
+            deltaSpan.textContent = deltaFmt(row.age_delta);
+          } else if (row.age_delta < -0.05) {
+            deltaSpan.style.color = "var(--danger)";
+            deltaSpan.style.fontWeight = "800";
+            deltaSpan.textContent = deltaFmt(row.age_delta);
+          } else {
+            deltaSpan.style.color = "var(--muted)";
+            deltaSpan.textContent = deltaFmt(row.age_delta);
+          }
+          cellNode(deltaSpan);
+
+          const verdictSpan = document.createElement("span");
+          let vcls = "";
+          let vlabel = "—";
+          if (row.verdict === "better") { vcls = "ok"; vlabel = "Better"; }
+          else if (row.verdict === "parity") { vcls = "warn"; vlabel = "Parity"; }
+          else if (row.verdict === "worse") { vcls = "bad"; vlabel = "Worse"; }
+          else { vlabel = "Need data"; }
+          verdictSpan.className = "badge " + vcls;
+          verdictSpan.textContent = vlabel;
+          cellNode(verdictSpan);
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      perTypeBody.replaceChildren();
+
+      const perType = project.per_type || {};
+      const types = ["text", "image", "puzzle"];
+
+      types.forEach((t) => {
+        const m = perType[t] || {};
+        const tr = document.createElement("tr");
+
+        const cell = (v) => {
+          const td = document.createElement("td");
+          td.textContent = v == null ? "—" : String(v);
+          tr.appendChild(td);
+        };
+
+        cell(t);
+        cell(m.human_total || 0);
+        cell(m.attacker_total || 0);
+        cell(pct(m.sr_human));
+        cell(pct(m.sr_bot));
+        cell(ageFmt(m.age));
+        cell(m.human_avg_time == null ? "—" : Number(m.human_avg_time).toFixed(2) + "s");
+        cell(m.attacker_avg_time == null ? "—" : Number(m.attacker_avg_time).toFixed(2) + "s");
+
+        perTypeBody.appendChild(tr);
+      });
+
+      status.textContent =
+        "Benchmark source: " + (data.paper_source || "L-MACD (IEEE Access 2024)");
+    } catch (e) {
+      console.error("Benchmark error:", e);
+      status.textContent = "Error: " + (e.message || "Could not load benchmark.");
+    }
+  }
+
+  /* ---------------- behaviour monitoring ---------------- */
+
+  function renderRuleList(ulId, counts) {
+    const ul = g(ulId);
+    if (!ul) return;
+    ul.replaceChildren();
+
+    const entries = Object.entries(counts || {})
+      .sort((a, b) => b[1] - a[1]);
+
+    if (!entries.length) {
+      const li = document.createElement("li");
+      li.textContent = "No rules fired.";
+      ul.appendChild(li);
+      return;
+    }
+
+    for (const [reason, count] of entries) {
+      const li = document.createElement("li");
+      const strong = document.createElement("strong");
+      strong.textContent = `×${count}`;
+      li.appendChild(strong);
+      li.appendChild(document.createTextNode("  " + reason));
+      ul.appendChild(li);
+    }
+  }
+
+  function numOrDash(v) {
+    if (v === null || v === undefined) return "—";
+    return String(v);
+  }
+
+  function riskPill(r) {
+    const v = Number(r);
+    if (!isFinite(v)) return { cls: "low", label: "—" };
+    if (v >= 0.60) return { cls: "high", label: `High (${v})` };
+    if (v >= 0.30) return { cls: "medium", label: `Med (${v})` };
+    return { cls: "low", label: `Low (${v})` };
+  }
+
+  async function refreshBehaviour() {
+    const status = g("beh-status");
+    const tbody = g("beh-body");
+    const cards = g("beh-cards");
+    if (!status || !tbody) return;
+
+    const actorFilter = (g("beh-filter-actor")?.value || "").trim();
+    const typeFilter = (g("beh-filter-type")?.value || "").trim();
+
+    status.textContent = "Loading behaviour feed...";
+
+    const params = new URLSearchParams();
+    params.set("limit", "100");
+    if (actorFilter) params.set("actor", actorFilter);
+    if (typeFilter) params.set("type", typeFilter);
+
+    try {
+      const res = await fetch("/api/monitor/behaviour?" + params.toString());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load behaviour feed.");
+
+      const attempts = Array.isArray(data.attempts) ? data.attempts : [];
+      const summary = data.summary || {};
+
+      cards.replaceChildren();
+      cards.append(
+        statCard(
+          "Total attempts",
+          fmtInt(summary.total),
+          `${summary.human_count || 0} human · ${summary.attacker_count || 0} attacker`
+        ),
+        statCard(
+          "Human avg risk",
+          fmtNum(summary.human_avg_risk, 2),
+          `avg solve ${fmtNum(summary.human_avg_time, 2)}s`,
+          summary.human_avg_risk != null ? summary.human_avg_risk * 100 : null,
+          summary.human_avg_risk >= 0.60 ? "bad" : summary.human_avg_risk >= 0.30 ? "warn" : ""
+        ),
+        statCard(
+          "Attacker avg risk",
+          fmtNum(summary.attacker_avg_risk, 2),
+          `avg solve ${fmtNum(summary.attacker_avg_time, 2)}s`,
+          summary.attacker_avg_risk != null ? summary.attacker_avg_risk * 100 : null,
+          summary.attacker_avg_risk >= 0.60 ? "bad" : summary.attacker_avg_risk >= 0.30 ? "warn" : ""
+        ),
+        statCard(
+          "Success rate",
+          fmtNum(summary.human_success_rate, 1) + "% human",
+          fmtNum(summary.attacker_success_rate, 1) + "% attacker"
+        )
+      );
+
+      renderRuleList("beh-rules-human", summary.human_rules || {});
+      renderRuleList("beh-rules-attacker", summary.attacker_rules || {});
+
+      tbody.replaceChildren();
+
+      if (!attempts.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 18;
+        td.textContent = "No attempts match the current filters.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        status.textContent = "No attempts found.";
+        return;
+      }
+
+      for (const a of attempts) {
+        const b = a.behaviour || {};
+        const tr = document.createElement("tr");
+
+        const cellText = (value) => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        };
+        const cellNode = (node) => {
+          const td = document.createElement("td");
+          td.appendChild(node);
+          tr.appendChild(td);
+        };
+
+        cellText(a.ts_iso || "—");
+
+        const actorSpan = document.createElement("span");
+        actorSpan.className = "actor-pill " + (a.actor === "attacker" ? "attacker" : "human");
+        actorSpan.textContent = a.actor || "?";
+        cellNode(actorSpan);
+
+        cellText(a.challenge_type || "—");
+
+        const rSpan = document.createElement("span");
+        rSpan.className = "result-pill " + (a.correct ? "ok" : "bad");
+        rSpan.textContent = a.correct ? "Correct" : "Wrong";
+        cellNode(rSpan);
+
+        cellText(a.solve_time == null ? "—" : Number(a.solve_time).toFixed(2));
+
+        const rk = riskPill(a.risk);
+        const rkSpan = document.createElement("span");
+        rkSpan.className = "risk-pill " + rk.cls;
+        rkSpan.textContent = rk.label;
+        cellNode(rkSpan);
+
+        cellText(numOrDash(b.keys));
+        cellText(numOrDash(b.backspaces));
+        cellText(numOrDash(b.pointer_moves));
+        cellText(numOrDash(b.pointer_distance));
+        cellText(numOrDash(b.interaction_events));
+        cellText(b.pasted ? "Yes" : "No");
+        cellText(`${numOrDash(b.focus_count)} / ${numOrDash(b.blur_count)}`);
+        cellText(numOrDash(b.visibility_changes));
+        cellText(numOrDash(b.first_key_ms));
+        cellText(numOrDash(b.typing_speed_cpm));
+        cellText(numOrDash(b.solver_events_count));
+
+        const reasons = Array.isArray(b.reasons) ? b.reasons : [];
+        cellText(reasons.length ? reasons.join(" • ") : "—");
+
+        tbody.appendChild(tr);
+      }
+
+      status.textContent = `Loaded ${attempts.length} attempt(s).`;
+    } catch (e) {
+      console.error("Behaviour monitor error:", e);
+      status.textContent = "Error: " + (e.message || "Could not load.");
+    }
+  }
+
+  const btnBeh = g("refresh-behaviour");
+  if (btnBeh) btnBeh.addEventListener("click", refreshBehaviour);
+  const selActor = g("beh-filter-actor");
+  if (selActor) selActor.addEventListener("change", refreshBehaviour);
+  const selType = g("beh-filter-type");
+  if (selType) selType.addEventListener("change", refreshBehaviour);
+
+
+  /* ---------------- session monitoring ---------------- */
+
+  async function refreshSessions() {
+    const status = g("ses-status");
+    const tbody = g("ses-body");
+    const cards = g("ses-cards");
+    if (!status || !tbody) return;
+
+    status.textContent = "Loading sessions...";
+
+    try {
+      const res = await fetch("/api/monitor/sessions?limit=50");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load sessions.");
+
+      const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+      const summary = data.summary || {};
+
+      cards.replaceChildren();
+      cards.append(
+        statCard("Sessions", fmtInt(summary.total_sessions), `${summary.sessions_with_attempts || 0} with attempts`),
+        statCard("Total attempts", fmtInt(summary.total_attempts), "across returned sessions"),
+        statCard("Avg risk", fmtNum(summary.avg_risk, 2), "session-level average",
+                 summary.avg_risk != null ? summary.avg_risk * 100 : null,
+                 summary.avg_risk >= 0.60 ? "bad" : summary.avg_risk >= 0.30 ? "warn" : "")
+      );
+
+      tbody.replaceChildren();
+
+      if (!sessions.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 11;
+        td.textContent = "No sessions recorded yet.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        status.textContent = "No sessions found.";
+        return;
+      }
+
+      for (const s of sessions) {
+        const tr = document.createElement("tr");
+        const cellText = (value) => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        };
+        const cellNode = (node) => {
+          const td = document.createElement("td");
+          td.appendChild(node);
+          tr.appendChild(td);
+        };
+
+        cellText(String(s.id).slice(0, 8));
+        cellText(s.ip ? String(s.ip).slice(0, 12) : "—");
+
+        const pSpan = document.createElement("span");
+        pSpan.className = "actor-pill " + (s.primary_actor === "attacker" ? "attacker" : "human");
+        pSpan.textContent = s.primary_actor || "—";
+        cellNode(pSpan);
+
+        cellText(String(s.total_attempts ?? 0));
+        cellText(`${s.human_attempts ?? 0} / ${s.attacker_attempts ?? 0}`);
+        cellText(`${s.total_successes ?? 0}`);
+
+        const rk = riskPill(s.avg_risk);
+        const rkSpan = document.createElement("span");
+        rkSpan.className = "risk-pill " + rk.cls;
+        rkSpan.textContent = rk.label;
+        cellNode(rkSpan);
+
+        const mx = riskPill(s.max_risk);
+        const mxSpan = document.createElement("span");
+        mxSpan.className = "risk-pill " + mx.cls;
+        mxSpan.textContent = mx.label;
+        cellNode(mxSpan);
+
+        cellText(fmtNum(s.avg_solve_time, 2));
+        cellText(s.last_seen_iso || "—");
+
+        if (s.latest_attempt) {
+          const la = s.latest_attempt;
+          const laSpan = document.createElement("span");
+          laSpan.className = "result-pill " + (la.correct ? "ok" : "bad");
+          laSpan.textContent = `${la.actor || "?"} · ${la.type || "?"} · ${la.correct ? "OK" : "×"}`;
+          cellNode(laSpan);
+        } else {
+          cellText("—");
+        }
+
+        tbody.appendChild(tr);
+      }
+
+      status.textContent = `Loaded ${sessions.length} session(s).`;
+    } catch (e) {
+      console.error("Session monitor error:", e);
+      status.textContent = "Error: " + (e.message || "Could not load.");
+    }
+  }
+
+  const btnSes = g("refresh-sessions");
+  if (btnSes) btnSes.addEventListener("click", refreshSessions);
+
+
+  /* ---------------- competitor analysis ---------------- */
+
+  async function refreshCompetitors() {
+    const status = g("comp-status");
+    const cards = g("comp-cards");
+    const chart = g("comp-chart");
+    const tbody = g("comp-body");
+    if (!status || !tbody) return;
+
+    status.textContent = "Loading competitor data...";
+
+    try {
+      const res = await fetch("/api/competitors/data");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load competitor data.");
+
+      const vendors = Array.isArray(data.vendors) ? data.vendors : [];
+      const signalComp = data.signal_comparison || {};
+
+      cards.replaceChildren();
+      cards.append(
+        statCard("Vendors compared", String(vendors.length), "Cloudflare, Arkose, reCAPTCHA, CapSolver, Platform 9¾"),
+        statCard("Signals tracked by Platform 9¾", "11", "Pointer, keyboard, clipboard, focus, visibility"),
+        statCard("Explainable output", "Yes", "Every risk flag has a reason"),
+        statCard("Open source", "Yes", "Full source available")
+      );
+
+      if (chart) {
+        const cats = signalComp.categories || [];
+
+        const vendorCols = [
+          { key: "turnstile",    label: "Cloudflare Turnstile", isMids: false },
+          { key: "arkose",       label: "Arkose Labs",          isMids: false },
+          { key: "recaptcha_v3", label: "reCAPTCHA v3",         isMids: false },
+          { key: "capsolver",    label: "CapSolver",            isMids: false },
+          { key: "platform",     label: "Platform 9¾",          isMids: true  }
+        ];
+
+        let html = '<table class="competitor-table">';
+        html += '<thead><tr>';
+        html += '<th class="feature-col">Features</th>';
+        vendorCols.forEach(v => {
+          html += `<th class="vendor-col ${v.isMids ? 'mids-col' : ''}">${v.label}${v.isMids ? ' <span class="mids-ribbon">This work</span>' : ''}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        cats.forEach((cat, idx) => {
+          html += '<tr>';
+          html += `<td class="feature-col">${cat}</td>`;
+          vendorCols.forEach(v => {
+            const vals = signalComp[v.key] || [];
+            const val = vals[idx];
+            const on = val === 1;
+            const cls = on ? "cell-on" : "cell-off";
+            const icon = on ? "✓" : "–";
+            html += `<td class="vendor-col ${cls} ${v.isMids ? 'mids-col' : ''}">${icon}</td>`;
+          });
+          html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        chart.innerHTML = html;
+      }
+
+      tbody.replaceChildren();
+
+      vendors.forEach(v => {
+        const tr = document.createElement("tr");
+        const cellText = (value) => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        };
+        const cellNode = (node) => {
+          const td = document.createElement("td");
+          td.appendChild(node);
+          tr.appendChild(td);
+        };
+
+        cellText(v.name || "—");
+
+        const typeSpan = document.createElement("span");
+        typeSpan.style.fontWeight = "600";
+        typeSpan.textContent = v.type || "—";
+        cellNode(typeSpan);
+
+        cellText((v.signals || []).join(", ") || "—");
+        cellText(v.risk_output || "—");
+
+        const expSpan = document.createElement("span");
+        expSpan.className = "badge " + (v.explainable ? "ok" : "warn");
+        expSpan.textContent = v.explainable ? "Yes" : "No";
+        cellNode(expSpan);
+
+        const osSpan = document.createElement("span");
+        osSpan.className = "badge " + (v.open_source ? "ok" : "warn");
+        osSpan.textContent = v.open_source ? "Yes" : "No";
+        cellNode(osSpan);
+
+        cellText(v.cost || "—");
+
+        tbody.appendChild(tr);
+      });
+
+      status.textContent = `Loaded ${vendors.length} vendor(s).`;
+    } catch (e) {
+      console.error("Competitor analysis error:", e);
+      status.textContent = "Error: " + (e.message || "Could not load.");
+    }
+  }
+
+  const btnComp = g("refresh-competitors");
+  if (btnComp) btnComp.addEventListener("click", refreshCompetitors);
+
+
+  /* ---------------- verification dashboard ---------------- */
+
+  async function refreshVerification() {
+    const status = g("ver-status");
+    if (!status) return;
+    status.textContent = "Running checks...";
+
+    const genBody = g("ver-gen-body");
+    const attBody = g("ver-att-body");
+    const attCards = g("ver-att-cards");
+    const riskCards = g("ver-risk-cards");
+    const humanUl = g("ver-risk-human");
+    const attackerUl = g("ver-risk-attacker");
+
+    try {
+      // 1. Generation validity
+      const genRes = await fetch("/api/verify/generation");
+      const genData = await genRes.json();
+      if (genBody) genBody.replaceChildren();
+
+      (genData.checks || []).forEach((c) => {
+        const box = document.createElement("div");
+        box.style.padding = "12px 14px";
+        box.style.marginBottom = "10px";
+        box.style.borderRadius = "10px";
+        box.style.border = "1px solid var(--line)";
+        box.style.background = c.passed ? "linear-gradient(90deg,#e8f6ee,#f7f9fc)" : "linear-gradient(90deg,#fdf1ef,#f7f9fc)";
+        box.style.borderLeft = `4px solid ${c.passed ? "var(--ok)" : "var(--danger)"}`;
+        const title = document.createElement("div");
+        title.style.fontWeight = "800";
+        title.textContent = `${c.challenge_type.toUpperCase()} · ${c.passed ? "PASS" : "FAIL"}`;
+        const detail = document.createElement("div");
+        detail.style.fontSize = ".85rem";
+        detail.style.color = "var(--muted)";
+        detail.style.marginTop = "4px";
+        detail.textContent = c.details;
+        const checksList = document.createElement("div");
+        checksList.style.fontSize = ".8rem";
+        checksList.style.marginTop = "8px";
+        Object.entries(c.checks || {}).forEach(([k, v]) => {
+          const span = document.createElement("span");
+          span.style.display = "inline-block";
+          span.style.marginRight = "12px";
+          span.textContent = `${v ? "✓" : "✗"} ${k}`;
+          span.style.color = v ? "var(--ok)" : "var(--danger)";
+          span.style.fontWeight = "700";
+          checksList.appendChild(span);
+        });
+        box.append(title, detail, checksList);
+        if (genBody) genBody.appendChild(box);
+      });
+
+      // 2. Attempt verification
+      const attRes = await fetch("/api/verify/attempts?limit=50");
+      const attData = await attRes.json();
+      if (attCards) {
+        attCards.replaceChildren();
+        attCards.append(
+          statCard("Total checked", String(attData.total || 0), "last 50 attempts"),
+          statCard("Passed", String(attData.passed || 0), "internally consistent"),
+          statCard("Failed", String(attData.failed || 0), "suspicious"),
+          statCard("Pass rate", (attData.pass_rate || 0) + "%", "of recent attempts")
+        );
+      }
+
+      if (attBody) {
+        attBody.replaceChildren();
+        (attData.attempts || []).slice(0, 50).forEach((a) => {
+          const tr = document.createElement("tr");
+          const cell = (v) => {
+            const td = document.createElement("td");
+            td.textContent = v == null ? "—" : String(v);
+            tr.appendChild(td);
+          };
+          cell(a.id);
+          cell(a.challenge_type);
+          cell(a.actor);
+          cell(a.correct ? "Correct" : "Wrong");
+          cell(a.risk);
+          cell(Object.entries(a.checks || {}).filter(([_, v]) => v).length + "/" + Object.keys(a.checks || {}).length);
+          const statusSpan = document.createElement("span");
+          statusSpan.className = "badge " + (a.passed ? "ok" : "bad");
+          statusSpan.textContent = a.passed ? "OK" : "CHECK";
+          const td = document.createElement("td");
+          td.appendChild(statusSpan);
+          tr.appendChild(td);
+          attBody.appendChild(tr);
+        });
+      }
+
+      // 3. Risk audit
+      const riskRes = await fetch("/api/verify/risk");
+      const riskData = await riskRes.json();
+
+      const h = riskData.human || {};
+      const a = riskData.attacker || {};
+
+      if (riskCards) {
+        riskCards.replaceChildren();
+        riskCards.append(
+          statCard(
+            "Human avg risk",
+            h.avg_risk != null ? h.avg_risk.toFixed(3) : "—",
+            `${h.count || 0} attempts`,
+            h.avg_risk != null ? h.avg_risk * 100 : null,
+            h.avg_risk >= 0.60 ? "bad" : h.avg_risk >= 0.30 ? "warn" : ""
+          ),
+          statCard(
+            "Attacker avg risk",
+            a.avg_risk != null ? a.avg_risk.toFixed(3) : "—",
+            `${a.count || 0} attempts`,
+            a.avg_risk != null ? a.avg_risk * 100 : null,
+            a.avg_risk >= 0.60 ? "bad" : a.avg_risk >= 0.30 ? "warn" : ""
+          ),
+          statCard("Human high-risk (FP)", String(h.high_risk_count || 0), "should be low"),
+          statCard("Attacker low-risk (FN)", String(a.low_risk_count || 0), "should be low")
+        );
+      }
+
+      const renderRules = (ul, counts) => {
+        if (!ul) return;
+        ul.replaceChildren();
+        const entries = Object.entries(counts || {}).sort((x, y) => y[1] - x[1]);
+        if (!entries.length) {
+          const li = document.createElement("li");
+          li.textContent = "No rules fired.";
+          ul.appendChild(li);
+          return;
+        }
+        entries.forEach(([reason, count]) => {
+          const li = document.createElement("li");
+          const strong = document.createElement("strong");
+          strong.textContent = `×${count}`;
+          li.append(strong, document.createTextNode("  " + reason));
+          ul.appendChild(li);
+        });
+      };
+      renderRules(humanUl, h.rule_counts || {});
+      renderRules(attackerUl, a.rule_counts || {});
+
+      status.textContent = "Checks completed.";
+    } catch (e) {
+      console.error("Verification error:", e);
+      status.textContent = "Error: " + (e.message || "Could not run checks.");
+    }
+  }
+
+  const btnVer = g("refresh-verification");
+  if (btnVer) btnVer.addEventListener("click", refreshVerification);
+
+
+  /* ---------------- initial page load ---------------- */
+
+  if (page === "report") {
+    initReportToggle();
+    refreshAttemptsReport();
+  }
+  if (page === "evaluation") {
+    refreshEvaluation();
+    refreshBenchmark();
+  }
+  if (page === "behaviour") refreshBehaviour();
+  if (page === "sessions") refreshSessions();
+  if (page === "competitors") refreshCompetitors();
+  if (page === "verification") refreshVerification();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,39 @@
+# ==============================================================================
+# Platform 9¾ — Adaptive CAPTCHA Defense System
+# Iteration 1 Requirements (v0.1.0)
+# ==============================================================================
+# Install with: pip install -r requirements.txt
+# Test with:    python -m pytest -q
+# Lint with:    python -m ruff check .
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Core Web Framework
+# ------------------------------------------------------------------------------
+Flask>=3.0.0,<4.0.0
+Werkzeug>=3.0.0,<4.0.0
+
+# ------------------------------------------------------------------------------
+# CAPTCHA Generators (Text, Image, Puzzle)
+# ------------------------------------------------------------------------------
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# ------------------------------------------------------------------------------
+# Attacker Solver & Computer Vision
+# ------------------------------------------------------------------------------
+opencv-python-headless>=4.8.0
+easyocr>=1.7.0
+
+# Note: ultralytics (YOLOv8n) and torch are intentionally commented out below.
+# They are heavy dependencies and not strictly required for Iteration 1 tests
+# unless you are running the advanced YOLO-based image attack locally.
+# ------------------------------------------------------------------------------
+# ultralytics>=8.0.0
+# torch>=2.0.0
+
+# ------------------------------------------------------------------------------
+# Testing & Code Quality (NFRs)
+# ------------------------------------------------------------------------------
+pytest>=8.0.0
+ruff>=0.4.0
